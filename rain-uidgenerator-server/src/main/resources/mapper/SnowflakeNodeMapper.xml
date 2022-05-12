@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.github.mxsm.rain.uid.dao.SnowflakeNodeDao">
+
+    <insert id="insertSnowflakeNode" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mxsm_snowfalke_node (host_name, port, deploy_env_type, description, create_time, update_time)
+        VALUES (#{sf.hostName}, #{sf.port}, #{sf.deployEnvType}, #{sf.description}, now(), now())
+    </insert>
+
+    <select id="selectSnowflakeNode" resultType="com.github.mxsm.rain.uid.entity.SnowflakeNodeEntity" >
+        SELECT id
+        FROM mxsm_snowfalke_node
+        WHERE host_name = #{hostName}
+          AND port = #{port}
+    </select>
+
+
+</mapper>

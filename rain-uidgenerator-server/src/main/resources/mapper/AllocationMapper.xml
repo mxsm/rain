@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.github.mxsm.rain.uid.dao.AllocationDao">
+
+    <insert id="insertAllocation" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mxsm_allocation (biz_code,
+        <if test="alloc.maxId != null">
+            max_id,
+        </if>
+        step, create_time, update_time)
+        VALUES (#{alloc.bizCode},
+        <if test="alloc.maxId != null">
+            #{alloc.maxId},
+        </if>
+        #{alloc.step}, now(), now())
+    </insert>
+
+    <update id="updateAllocation">
+        UPDATE mxsm_allocation
+        SET max_id = max_id + step * #{stepLength}
+        WHERE biz_code = #{bizCode}
+    </update>
+
+    <select id="getAllocation" resultType="com.github.mxsm.rain.uid.entity.AllocationEntity">
+        SELECT id, max_id as maxId, step
+        FROM mxsm_allocation
+        WHERE biz_code = #{bizCode} FOR UPDATE
+    </select>
+</mapper>
