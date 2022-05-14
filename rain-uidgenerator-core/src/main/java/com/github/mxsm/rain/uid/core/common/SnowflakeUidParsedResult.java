@@ -9,7 +9,7 @@ public class SnowflakeUidParsedResult {
 
     private long uid;
 
-    private String timestamp; //format yyyy-MM-dd
+    private String timestamp; //format yyyy-MM-dd HH:mm:ss
 
     private long machineId;
 

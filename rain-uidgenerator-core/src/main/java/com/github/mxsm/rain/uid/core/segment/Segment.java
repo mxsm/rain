@@ -14,17 +14,17 @@ public class Segment {
     //this segment start number
     private long segmentStartNum;
 
-    //this segment step size
-    private int stepSize;
+    //this segment length
+    private int length;
 
     private AtomicInteger increment = new AtomicInteger(0);
 
     //segment status
     private volatile boolean isOk = true;
 
-    public Segment(long segmentStartNum, int stepSize) {
+    public Segment(long segmentStartNum, int length) {
         this.segmentStartNum = segmentStartNum;
-        this.stepSize = stepSize;
+        this.length = length;
     }
 
     public long createSegmentUid(){
@@ -32,7 +32,7 @@ public class Segment {
             throw new SegmentOutOfBoundaryException();
         }
         int incrementNum = increment.getAndIncrement();
-        if(incrementNum >= stepSize){
+        if(incrementNum >= length){
             isOk = false;
             throw new SegmentOutOfBoundaryException();
         }
@@ -51,11 +51,11 @@ public class Segment {
         this.segmentStartNum = segmentStartNum;
     }
 
-    public int getStepSize() {
-        return stepSize;
+    public int getLength() {
+        return length;
     }
 
-    public void setStepSize(int stepSize) {
-        this.stepSize = stepSize;
+    public void setLength(int length) {
+        this.length = length;
     }
 }
