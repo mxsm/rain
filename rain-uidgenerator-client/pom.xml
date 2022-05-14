@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.mxsm.rain</groupId>
+        <groupId>com.github.mxsm</groupId>
         <artifactId>rain</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
@@ -24,7 +24,7 @@
     <dependencies>
 
         <dependency>
-            <groupId>com.github.mxsm.rain</groupId>
+            <groupId>com.github.mxsm</groupId>
             <artifactId>rain-uidgenerator-core</artifactId>
         </dependency>
 
