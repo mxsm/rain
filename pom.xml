@@ -131,10 +131,10 @@
     <profiles>
         <profile>
             <id>release-ossrh</id> <!-- 部署要用到 -->
-            <build>
+            <!--<build>
                 <plugins>
-                    <!-- GPG -->
-                    <plugin> <!-- 进行延签 -->
+                    &lt;!&ndash; GPG &ndash;&gt;
+                    <plugin> &lt;!&ndash; 进行延签 &ndash;&gt;
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
                         <version>3.0.1</version>
@@ -148,7 +148,7 @@
                         </executions>
                     </plugin>
                 </plugins>
-            </build>
+            </build>-->
             <distributionManagement>
                 <snapshotRepository>
                     <id>ossrh</id>
