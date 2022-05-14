@@ -1,14 +1,3 @@
-# rain
-
-[![Publish package to the Maven Central Repository and GitHub Packages](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml/badge.svg?branch=main)](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml)
-
-分布式全局ID生成服务，ID生成分为两个模式：
-
-- **segment**
-- **snowflake**
-
-如何使用看如下介绍。
-
 ### 1. Quick Start
 
 这里介绍项目如何启动以及如何使用。clone项目到本地：
