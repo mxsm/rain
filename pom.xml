@@ -11,6 +11,7 @@
         <module>rain-uidgenerator-client</module>
         <module>rain-uidgenerator-core</module>
         <module>rain-uidgenerator-server</module>
+        <module>rain-uidgenerator-jmh</module>
     </modules>
 
     <url>https//blog.ljbmxsm.com/</url>
@@ -68,7 +69,13 @@
             <dependency>
                 <groupId>com.github.mxsm</groupId>
                 <artifactId>rain-uidgenerator-core</artifactId>
-                <version>1.0.0-SNAPSHOT</version>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.mxsm</groupId>
+                <artifactId>rain-uidgenerator-client</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -92,63 +99,44 @@
         </dependencies>
     </dependencyManagement>
 
-    <build>
-        <plugins>
-            <!-- Source -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <!-- Javadoc -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.3.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <configuration>
-                            <additionalJOption>-Xdoclint:none</additionalJOption>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
     <profiles>
         <profile>
-            <id>release-ossrh</id> <!-- 部署要用到 -->
-            <!--<build>
+            <id>release-ossrh</id> <!-- deploy to ossrh -->
+            <build>
                 <plugins>
-                    &lt;!&ndash; GPG &ndash;&gt;
-                    <plugin> &lt;!&ndash; 进行延签 &ndash;&gt;
+                    <!-- Source -->
+                    <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.0.1</version>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.2.1</version>
                         <executions>
                             <execution>
-                                <phase>verify</phase>
+                                <phase>package</phase>
                                 <goals>
-                                    <goal>sign</goal>
+                                    <goal>jar-no-fork</goal>
                                 </goals>
                             </execution>
                         </executions>
                     </plugin>
+                    <!-- Javadoc -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <configuration>
+                                    <additionalJOption>-Xdoclint:none</additionalJOption>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
-            </build>-->
+            </build>
             <distributionManagement>
                 <snapshotRepository>
                     <id>ossrh</id>
@@ -163,7 +151,7 @@
             </distributionManagement>
         </profile>
         <profile>
-            <id>release-github</id> <!-- 部署要用到 -->
+            <id>release-github</id> <!-- deploy to github -->
             <distributionManagement>
                 <repository>
                     <id>github</id>

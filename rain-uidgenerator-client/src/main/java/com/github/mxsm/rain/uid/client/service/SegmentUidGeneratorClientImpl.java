@@ -17,6 +17,7 @@ import com.github.mxsm.rain.uid.core.segment.SegmentPanel;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * @author mxsm
@@ -50,6 +51,9 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
     }
 
     private void parseURL() {
+        if(StringUtils.isEmpty(this.uidGeneratorServerUir)){
+            return;
+        }
         String[] sts = UrlUtils.parseUriAndPort(this.uidGeneratorServerUir);
         this.host = sts[0];
         this.port = Integer.parseInt(sts[1]);

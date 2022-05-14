@@ -35,6 +35,10 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
     }
 
     private void parseURL() {
+
+        if(!snowflakeUidFromRemote){
+            return;
+        }
         String[] sts = UrlUtils.parseUriAndPort(this.uidGeneratorServerUir);
         this.host = sts[0];
         this.port = Integer.parseInt(sts[1]);
