@@ -111,14 +111,6 @@ java -Xms1g -Xmx1g -jar uidgenerator-server/target/uidgenerator-server-0.0.1-SNA
 
 ### 6. Restful接口
 
-- **segment模式**
-  - [注册bizCode](#6.1 注册bizCode)
-  - [获取segment模式UID](#6.2 获取segment模式UID)
-  - [获取segment](#6.3 获取segment)
-- **snowflake模式**
-  - [获取snowflake模式UID](#6.4 获取snowflake模式UID)
-  - [解析snowflake的UID](#6.4 解析snowflake的UID)
-
 #### 6.1 注册bizCode
 
 **描述**
