@@ -12,6 +12,7 @@
         <module>rain-uidgenerator-core</module>
         <module>rain-uidgenerator-server</module>
         <module>rain-uidgenerator-jmh</module>
+        <module>distribution</module>
     </modules>
 
     <url>https//blog.ljbmxsm.com/</url>
@@ -47,14 +48,14 @@
     <name>rain</name>
     <description>rain uid generator service</description>
     <properties>
-        <java.version>17</java.version>
+        <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <spring.boot.version>2.6.7</spring.boot.version>
         <commons-lang3.version>3.9</commons-lang3.version>
         <junit.version>4.13.1</junit.version>
-        <revision>1.0.0</revision>
+        <revision>1.0.1-SNAPSHOT</revision>
         <maven.flatten.version>1.2.5</maven.flatten.version>
     </properties>
 
@@ -108,6 +109,11 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring.boot.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>3.3.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>
