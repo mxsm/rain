@@ -7,10 +7,10 @@
     <parent>
         <groupId>com.github.mxsm</groupId>
         <artifactId>rain</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <artifactId>rain-uidgenerator-client</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>jar</packaging>
 
     <name>rain-uidgenerator-client</name>

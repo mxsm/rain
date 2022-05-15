@@ -3,6 +3,11 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+*.war
+*.zip
+*.tar
+*.tar.gz
+.flattened-pom.xml
 
 ### STS ###
 .apt_generated
