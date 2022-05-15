@@ -39,6 +39,10 @@ public class Http2Requester {
 
     private final static Http2Requester H2REQUESTER = new Http2Requester();
 
+    public static final int RCV_BUF_SIZE = 4 * 1024;
+
+    public static final int SND_BUF_SIZE = 4 * 1024;
+
     private final IOReactorConfig ioReactorConfig;
 
     private final H2Config h2Config;
@@ -49,8 +53,8 @@ public class Http2Requester {
         this.ioReactorConfig = IOReactorConfig.custom()
             .setSoTimeout(5, TimeUnit.SECONDS)
             .setSoKeepAlive(true)
-            .setRcvBufSize(4 * 1024)
-            .setSndBufSize(4 * 1024)
+            .setRcvBufSize(RCV_BUF_SIZE)
+            .setSndBufSize(SND_BUF_SIZE)
             .build();
 
         this.h2Config = H2Config.custom()

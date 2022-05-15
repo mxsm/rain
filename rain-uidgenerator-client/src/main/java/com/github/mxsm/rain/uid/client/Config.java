@@ -7,26 +7,34 @@ package com.github.mxsm.rain.uid.client;
  */
 public class Config {
 
+    //server url
     private String uidGeneratorServerUir;
 
+    //get segment number from remote server
     private int segmentNum = 16;
 
+    //threshold of get segment from remote
     private int threshold = 30;
 
+    //bit‘s length of snowflake timestamp
     private int timestampBits = 41;
 
+    //bit‘s length of  snowflake machine id
     private int machineIdBits = 10;
 
+    //bit‘s length of  snowflake sequence
     private int sequenceBits = 12;
 
-    private boolean container = false;
-
+    //setting timestamp is second or millisecond
     private boolean timeBitsSecond = false;
 
+    // start epoch, and must before now
     private String epoch = "2015-05-01";
 
+    //Whether to obtain the snowflake ID remotely or locally
     private boolean snowflakeUidFromRemote = true;
 
+    //Whether to obtain the segment ID remotely or locally
     private boolean segmentUidFromRemote = true;
 
     public int getSegmentNum() {
@@ -67,14 +75,6 @@ public class Config {
 
     public void setSequenceBits(int sequenceBits) {
         this.sequenceBits = sequenceBits;
-    }
-
-    public boolean isContainer() {
-        return container;
-    }
-
-    public void setContainer(boolean container) {
-        this.container = container;
     }
 
     public boolean isTimeBitsSecond() {

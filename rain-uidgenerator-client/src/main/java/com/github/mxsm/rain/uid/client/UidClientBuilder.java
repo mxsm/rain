@@ -41,11 +41,6 @@ public final class UidClientBuilder {
         return this;
     }
 
-    public UidClientBuilder isContainer(boolean container) {
-        this.config.setContainer(container);
-        return this;
-    }
-
     public UidClientBuilder isTimeBitsSecond(boolean timeBitsSecond) {
         this.config.setTimeBitsSecond(timeBitsSecond);
         return this;
