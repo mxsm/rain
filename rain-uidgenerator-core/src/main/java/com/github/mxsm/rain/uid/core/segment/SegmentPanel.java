@@ -55,7 +55,7 @@ public class SegmentPanel {
                 if (e instanceof SegmentOutOfBoundaryException) {
                     try {
                         lock.lock();
-                        if (!this.currentSegment.isOk()) {
+                        if (this.currentSegment != null && !this.currentSegment.isOk()) {
                             if (((capacity - counter) * 100) / capacity <= threshold) {
                                 listener.listener(this, counter);
                             }
