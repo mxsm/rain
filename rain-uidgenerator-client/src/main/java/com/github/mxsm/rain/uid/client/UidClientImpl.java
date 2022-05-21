@@ -41,7 +41,7 @@ public class UidClientImpl implements UidClient {
             config.getEpoch(), config.isTimeBitsSecond(), config.isSnowflakeUidFromRemote(),
             new BitsAllocator(config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits()));
         this.segmentUidFromRemote = config.isSegmentUidFromRemote();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> executorService.shutdown()));
+       // Runtime.getRuntime().addShutdownHook(new Thread(() -> executorService.shutdown()));
     }
 
 
@@ -89,5 +89,10 @@ public class UidClientImpl implements UidClient {
     @Override
     public SnowflakeUidParsedResult parseSnowflakeUid(long uid) {
         return snowflakeService.parseUID(uid);
+    }
+
+    @Override
+    public void shutdown() {
+        executorService.shutdownNow();
     }
 }

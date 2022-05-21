@@ -13,7 +13,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.results.format.ResultFormatType;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -34,13 +33,13 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 @State(value = Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.SECONDS)
-public class SnowflakeClientLocalBenchmark {
+public class SnowflakeClientRemoteBenchmark {
 
     private UidClient uidClient;
 
     @Setup
     public void init() {
-        uidClient = UidClient.builder().isSnowflakeUidFromRemote(false).build();
+        uidClient = UidClient.builder().setUidGeneratorServerUir("172.23.186.56:8080").isSnowflakeUidFromRemote(true).build();
     }
 
     @Benchmark
@@ -95,7 +94,7 @@ public class SnowflakeClientLocalBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-            .include(SnowflakeClientLocalBenchmark.class.getSimpleName())
+            .include(SnowflakeClientRemoteBenchmark.class.getSimpleName())
             .result("result.json")
             .resultFormat(ResultFormatType.JSON).build();
         new Runner(opt).run();

@@ -43,6 +43,9 @@ public interface UidClient {
     SnowflakeUidParsedResult parseSnowflakeUid(long uid);
 
 
+    
+    void shutdown();
+
     static UidClientBuilder builder() {
         return new UidClientBuilder();
     }
