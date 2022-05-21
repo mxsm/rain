@@ -77,7 +77,9 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
     public List<Segment> getSegments(String bizCode, int segmentNum) {
         try {
             StringBuilder path = new StringBuilder(SEGMENTS_PATH).append(bizCode);
-            String content = Http2Requester.executeGET(host, port, path.toString(), new HashMap<>());
+            HashMap<String, String> params = new HashMap<>();
+            params.put("segmentNum",String.valueOf(segmentNum));
+            String content = Http2Requester.executeGET(host, port, path.toString(), params);
             Result<List<Segment>> result = JSON.parseObject(content, new TypeReference<>() {
             });
             return result.getData();
