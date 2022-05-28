@@ -45,7 +45,7 @@ public class BitsAllocator {
         this(timestampBits, machineIdBits, sequenceBits, -1);
     }
 
-    public BitsAllocator(int timestampBits, int machineIdBits, int sequenceBits, int machineId) {
+    public BitsAllocator(int timestampBits, int machineIdBits, int sequenceBits, long machineId) {
         // make sure allocated 64 bits
         int allocateTotalBits = signBits + timestampBits + machineIdBits + sequenceBits;
         if (allocateTotalBits > TOTAL_BITS) {

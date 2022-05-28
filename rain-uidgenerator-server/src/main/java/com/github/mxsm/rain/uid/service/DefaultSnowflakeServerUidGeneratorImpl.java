@@ -38,15 +38,16 @@ public class DefaultSnowflakeServerUidGeneratorImpl extends AbstractSnowflakeUid
 
     private DeployEnvType deployEnvType;
 
-    public DefaultSnowflakeServerUidGeneratorImpl(SnowflakeUidGeneratorConfig config, SnowflakeNodeDao snowflakeNodeDao) {
+    public DefaultSnowflakeServerUidGeneratorImpl(SnowflakeUidGeneratorConfig config,
+        SnowflakeNodeDao snowflakeNodeDao) {
         super(Optional.ofNullable(config.getEpoch()).orElse(EPOCH_DEFAULT), config.isTimeBitsSecond(),
-            new BitsAllocator(config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits()));
+            config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits());
         this.snowflakeNodeDao = snowflakeNodeDao;
         this.deployEnvType = config.isContainer() ? DeployEnvType.CONTAINER : DeployEnvType.ACTUAL;
     }
 
     @PostConstruct
-    private void init(){
+    private void init() {
         getBitsAllocator().setMachineId(getMachineId());
     }
 

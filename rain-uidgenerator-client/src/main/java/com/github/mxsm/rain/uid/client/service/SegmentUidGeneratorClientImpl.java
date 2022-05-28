@@ -1,9 +1,9 @@
 package com.github.mxsm.rain.uid.client.service;
 
 
-
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
+import com.github.mxsm.rain.uid.client.Config;
 import com.github.mxsm.rain.uid.client.Http2Requester;
 import com.github.mxsm.rain.uid.client.utils.UrlUtils;
 
@@ -41,17 +41,16 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
 
     private int port;
 
-    public SegmentUidGeneratorClientImpl(String uidGeneratorServerUir, int cacheSize, int threshold,
-        ExecutorService executorService) {
-        super(cacheSize);
-        this.uidGeneratorServerUir = uidGeneratorServerUir;
-        this.threshold = threshold;
-        this.executorService = executorService;
+    public SegmentUidGeneratorClientImpl(final Config config) {
+        super(config.getSegmentNum());
+        this.uidGeneratorServerUir = config.getUidGeneratorServerUir();
+        this.threshold = config.getThreshold();
+        this.executorService = null;
         parseURL();
     }
 
     private void parseURL() {
-        if(StringUtils.isEmpty(this.uidGeneratorServerUir)){
+        if (StringUtils.isEmpty(this.uidGeneratorServerUir)) {
             return;
         }
         String[] sts = UrlUtils.parseUriAndPort(this.uidGeneratorServerUir);
@@ -78,7 +77,7 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
         try {
             StringBuilder path = new StringBuilder(SEGMENTS_PATH).append(bizCode);
             HashMap<String, String> params = new HashMap<>();
-            params.put("segmentNum",String.valueOf(segmentNum));
+            params.put("segmentNum", String.valueOf(segmentNum));
             String content = Http2Requester.executeGET(host, port, path.toString(), params);
             Result<List<Segment>> result = JSON.parseObject(content, new TypeReference<>() {
             });

@@ -1,11 +1,11 @@
 package com.github.mxsm.rain.uid.client.service;
 
+import com.github.mxsm.rain.uid.client.Config;
 import com.github.mxsm.rain.uid.client.Http2Requester;
 import com.github.mxsm.rain.uid.client.utils.UrlUtils;
 import com.github.mxsm.rain.uid.core.SnowflakeUidGenerator;
 import com.github.mxsm.rain.uid.core.exception.UidGenerateException;
 import com.github.mxsm.rain.uid.core.snowflake.AbstractSnowflakeUidGenerator;
-import com.github.mxsm.rain.uid.core.snowflake.BitsAllocator;
 
 
 /**
@@ -25,12 +25,11 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
 
     private int port;
 
-    public SnowflakeUidGeneratorClientImpl(String uidGeneratorServerUir, String epoch, boolean timeBitsSecond,
-        boolean snowflakeUidFromRemote, BitsAllocator bitsAllocator) {
-        super(epoch, timeBitsSecond, bitsAllocator);
-        this.uidGeneratorServerUir = uidGeneratorServerUir;
-        this.snowflakeUidFromRemote = snowflakeUidFromRemote;
-        bitsAllocator.setMachineId(getMachineId());
+    public SnowflakeUidGeneratorClientImpl(Config config) {
+        super(config.getEpoch(), config.isTimeBitsSecond(),config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits());
+        this.uidGeneratorServerUir = config.getUidGeneratorServerUir();
+        this.snowflakeUidFromRemote = config.isSnowflakeUidFromRemote();
+        super.getBitsAllocator().setMachineId(getMachineId());
         parseURL();
     }
 

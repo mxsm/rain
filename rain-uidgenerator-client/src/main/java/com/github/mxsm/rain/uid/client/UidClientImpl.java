@@ -35,11 +35,8 @@ public class UidClientImpl implements UidClient {
 
     public UidClientImpl(Config config) {
 
-        this.segmentService = new SegmentUidGeneratorClientImpl(config.getUidGeneratorServerUir(),
-            config.getSegmentNum(), config.getThreshold(), executorService);
-        this.snowflakeService = new SnowflakeUidGeneratorClientImpl(config.getUidGeneratorServerUir(),
-            config.getEpoch(), config.isTimeBitsSecond(), config.isSnowflakeUidFromRemote(),
-            new BitsAllocator(config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits()));
+        this.segmentService = new SegmentUidGeneratorClientImpl(config);
+        this.snowflakeService = new SnowflakeUidGeneratorClientImpl(config);
         this.segmentUidFromRemote = config.isSegmentUidFromRemote();
        // Runtime.getRuntime().addShutdownHook(new Thread(() -> executorService.shutdown()));
     }

@@ -43,12 +43,12 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
 
     private Lock lock = new ReentrantLock();
 
-    public AbstractSnowflakeUidGenerator(String epoch, boolean timeBitsSecond, BitsAllocator bitsAllocator) {
+    public AbstractSnowflakeUidGenerator(String epoch, boolean timeBitsSecond, int timestampBits, int machineIdBits, int sequenceBits) {
         this.epoch = epoch;
         this.timeBitsSecond = timeBitsSecond;
-        this.bitsAllocator = bitsAllocator;
         long epochMill = DateUtils.parseDate(epoch, "yyyy-MM-dd").getTime();
         this.epochTime = timeBitsSecond ? TimeUnit.MILLISECONDS.toSeconds(epochMill) : epochMill;
+        this.bitsAllocator = new BitsAllocator(timestampBits, machineIdBits, sequenceBits);
     }
 
     public BitsAllocator getBitsAllocator() {
@@ -63,9 +63,7 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
      */
     @Override
     public long getUID() throws UidGenerateException {
-        //return timeBitsSecond ? nextIdExtOptimisticLock() : nextIdStandardOptimisticLock();
         return timeBitsSecond ? nextIdExt() : nextIdStandard();
-        //return timeBitsSecond ? nextIdExtLock() : nextIdStandardLock();
     }
 
     /**

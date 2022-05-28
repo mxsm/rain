@@ -37,6 +37,8 @@ public class Config {
     //Whether to obtain the segment ID remotely or locally
     private boolean segmentUidFromRemote = true;
 
+
+
     public int getSegmentNum() {
         return segmentNum;
     }
