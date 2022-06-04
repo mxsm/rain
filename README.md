@@ -90,7 +90,7 @@ spring.datasource.password=xxxxx
 sh bin/start.sh
 ```
 
-![image-20220604145105893](C:\Users\mxsm\AppData\Roaming\Typora\typora-user-images\image-20220604145105893.png)
+![image-20220604145105893](https://raw.githubusercontent.com/mxsm/picture/main/blog/javase/jvmimage-20220604145105893.png)
 
 ### 4. Segment模式UID生成配置
 
