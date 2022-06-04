@@ -17,7 +17,7 @@
 - 支持容器化部署
 - 支持每秒百万ID生成
 
-### 3. mxsm-uidgenerator实现
+### 3. rain实现
 
 为了实现上面的业务需求以及性能要求，提供了segment和snowflake两种模式
 
