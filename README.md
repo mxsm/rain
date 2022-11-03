@@ -2,30 +2,26 @@
 
 [![Publish package to the Maven Central Repository and GitHub Packages](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml/badge.svg?branch=main)](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml)
 
-分布式全局ID生成服务，ID生成分为两个模式：
+Distributed global ID generation service, ID generation is divided into two modes：
 
-- **segment（分段模式）**
-- **snowflake（雪花算法）**
+- **segment**
+- **snowflake**
 
-如何使用看如下介绍。
-
-
+How to use see the following introduction.
 
 ## Quick Start
 
-### 1. 安装依赖
+### 1. Install dependencies
 
 - JDK 11
 - MySQL8
 - Maven 3.8.5
 
-安装好相关的依赖。
+### 2. Database initialization
 
-### 2. 数据库初始化
+#### 2.1 Create table
 
-#### 2.1 创建表
-
-运行一下sql脚本创建对应的数据库和表，脚本如下：
+Run the sql script to create the database and tables：
 
 ```sql
 DROP DATABASE IF EXISTS `uidgenerator`;
@@ -59,22 +55,22 @@ CREATE TABLE `mxsm_snowfalke_node` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 ```
 
-### 3. rain部署启动
+## 3. rain deployment and start
 
-#### 3.1  通过提供的Package
+### 3.1  Via the provided package
 
-**第一步：下载 binary package**
+**Step 1：Download binary package**
 
-可以从最新的[最新的稳定版本](https://github.com/mxsm/rain/releases)页面下载。获取  **`rain-server-1.0.1-SNAPSHOT.tar.gz`**
+It can be downloaded from the [latest stable release page](https://github.com/mxsm/rain/releases)  **`rain-server-1.0.1-SNAPSHOT.tar.gz`**
 
 ```shell
 tar -zxvf rain-server-1.0.1-SNAPSHOT.tar.gz
 cd rain-server-1.0.1-SNAPSHOT/
 ```
 
-**第二步：修改conf/application.properties**
+**Step 2：Modify conf/application.properties**
 
-修改application.properties配置中数据库相关配置：
+Modify the database-related configuration in the application.properties configuration:
 
 ```properties
 spring.datasource.url=jdbc:mysql://ip:port/uidgenerator?useUnicode=true&characterEncoding=utf-8
@@ -82,9 +78,9 @@ spring.datasource.username=xxx
 spring.datasource.password=xxxxx
 ```
 
-> Tips:  确保库地址, 名称, 端口号, 用户名和密码正确
+> Tips:  make sure the database address, name, port number, username, and password are correct.
 
-**第三步：启动服务**
+**Step 3：Start server**
 
 ```shell
 sh bin/start.sh
@@ -92,35 +88,35 @@ sh bin/start.sh
 
 ![image-20220604145105893](https://raw.githubusercontent.com/mxsm/picture/main/blog/javase/jvmimage-20220604145105893.png)
 
-### 4. Segment模式UID生成配置
+### 4. Segment mode UID generation configuration
 
-修改配置conf/application.properties文件，以下是配置说明
+Modify conf/application.properties
 
-| 配置                        | 默认值 | 说明                                                         |
-| --------------------------- | ------ | ------------------------------------------------------------ |
-| mxsm.uid.segment.threshold  | 40     | 缓存模式下当本地缓存阈值低于或者等于40%后就会去数据库加载segment填充，取值范围0-100 |
-| mxsm.uid.segment.cache-size | 16     | 缓存模式下默认加载的缓存segment的数量                        |
+| config                      | default value | explain                                                      |
+| --------------------------- | ------------- | ------------------------------------------------------------ |
+| mxsm.uid.segment.threshold  | 40            | In cache mode, when the local cache threshold is lower than or equal to 40%, the segment filling will be loaded to the database, and the value ranges from 0 to 100 |
+| mxsm.uid.segment.cache-size | 16            | Number of cached segments to load by default in cache mode   |
 
-threshold和cache-size的大小影响从数据中获取的segment的频率，cache-size如果设置的过大在停机维护项目的时候会造成UID的浪费，但是cache-size大可以在数据库发生宕机的情况下能够继续服务之前已经加载内存中的bizCode。
+The size of threshold and cache-size affects the frequency of segment obtained from the data. If cache-size is set too large, it will cause a waste of UID when the project is stopped for maintenance. But the cache-size is large enough that bizCode is loaded in memory before it can continue serving in the event of a database crash。
 
-### 5. Snowflake模式UID生成配置
+### 5. Snowflake pattern UID generation configuration
 
-修改配置conf/application.properties文件，以下是配置说明:
+Modify conf/application.properties :
 
-| 配置                                | 默认值     | 说明                                                    |
-| ----------------------------------- | ---------- | ------------------------------------------------------- |
-| mxsm.uid.snowflake.timestamp-bits   | 41         | 雪花算法timestamp的位数                                 |
-| mxsm.uid.snowflake.machine-id-bits  | 10         | 雪花算法machine id的位数                                |
-| mxsm.uid.snowflake.sequence-bits    | 12         | 雪花算法序列号的位数                                    |
-| mxsm.uid.snowflake.container        | false      | 是否为容器化部署                                        |
-| mxsm.uid.snowflake.time-bits-second | false      | timestamp是否为秒                                       |
-| mxsm.uid.snowflake.epoch            | 2022-05-01 | timestamp的相对时间，格式yyyy-MM-dd，并且在当前时间以前 |
+| config                              | default value | explain                                                      |
+| ----------------------------------- | ------------- | ------------------------------------------------------------ |
+| mxsm.uid.snowflake.timestamp-bits   | 41            | The number of bits of timestamp for the snowflake algorithm  |
+| mxsm.uid.snowflake.machine-id-bits  | 10            | The number of bits in the machine id of the snowflake algorithm |
+| mxsm.uid.snowflake.sequence-bits    | 12            | The number of bits in the snowflake algorithm sequence number |
+| mxsm.uid.snowflake.container        | false         | Whether the deployment is containerized                      |
+| mxsm.uid.snowflake.time-bits-second | false         | timestamp Whether it is in seconds                           |
+| mxsm.uid.snowflake.epoch            | 2022-05-01    | timestamp The relative time in the format yyyy-MM-dd and before the current time |
 
 timestamp-bits、machine-id-bits、sequence-bits三个位数和加起来要等于63。
 
 ### 6. Java SDK
 
-maven client依赖：
+maven client dependence：
 
 ```xml
 <dependency>
@@ -130,7 +126,7 @@ maven client依赖：
 </dependency>
 ```
 
-使用例子
+example:
 
 ```java
 UidClient client = UidClient.builder()
@@ -148,14 +144,14 @@ long snowflake =  client.getSnowflakeUid();
 
 ## Source Code Quick Start
 
-**第一步： clone代码**
+**Step 1： clone code**
 
 ```shell
 git clone https://github.com/mxsm/rain.git
 cd rain
 ```
 
-**第二步：修改rain-uidgenerator-server项目中的application.properties**
+**Step 2：Modify application.properties in rain-uidgenerator-server**
 
 ```properties
 spring.datasource.url=jdbc:mysql://ip:port/uidgenerator?useUnicode=true&characterEncoding=utf-8
@@ -163,13 +159,13 @@ spring.datasource.username=xxx
 spring.datasource.password=xxxxx
 ```
 
-**第三步：maven打包服务**
+**Step 3：maven package server**
 
 ```shell
 mvn clean package -DskipTests=true
 ```
 
-**第四步：启动服务**
+**Step 4：Start server**
 
 ```shell
 java -Xms1g -Xmx1g -jar ./rain-uidgenerator-server/target/rain-uidgenerator-server-1.0.1-SNAPSHOT.jar
