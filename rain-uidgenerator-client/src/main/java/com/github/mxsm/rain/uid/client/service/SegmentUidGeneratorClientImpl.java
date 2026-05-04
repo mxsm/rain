@@ -1,13 +1,13 @@
 package com.github.mxsm.rain.uid.client.service;
 
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mxsm.rain.uid.client.Config;
 import com.github.mxsm.rain.uid.client.Http2Requester;
-import com.github.mxsm.rain.uid.client.utils.UrlUtils;
 
 import com.github.mxsm.rain.uid.core.SegmentUidGenerator;
+import com.github.mxsm.rain.uid.core.common.ErrorCode;
 import com.github.mxsm.rain.uid.core.common.Result;
 import com.github.mxsm.rain.uid.core.exception.UidGenerateException;
 import com.github.mxsm.rain.uid.core.segment.AbstractSegmentUidGenerator;
@@ -17,7 +17,9 @@ import com.github.mxsm.rain.uid.core.segment.SegmentPanel;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import org.apache.commons.lang3.StringUtils;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author mxsm
@@ -27,35 +29,27 @@ import org.apache.commons.lang3.StringUtils;
 public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator implements SegmentUidGenerator,
     SegmentConsumerListener {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     public static final String SEGMENT_UID_PATH = "/api/v1/segment/uid/";
 
     public static final String SEGMENTS_PATH = "/api/v1/segment/list/";
 
     private String uidGeneratorServerUir;
 
+    private Config config;
+
     private int threshold;
 
     private ExecutorService executorService;
 
-    private String host;
-
-    private int port;
-
     public SegmentUidGeneratorClientImpl(final Config config) {
         super(config.getSegmentNum());
+        this.config = config;
         this.uidGeneratorServerUir = config.getUidGeneratorServerUir();
         this.threshold = config.getThreshold();
-        this.executorService = null;
-        parseURL();
-    }
-
-    private void parseURL() {
-        if (StringUtils.isEmpty(this.uidGeneratorServerUir)) {
-            return;
-        }
-        String[] sts = UrlUtils.parseUriAndPort(this.uidGeneratorServerUir);
-        this.host = sts[0];
-        this.port = Integer.parseInt(sts[1]);
+        this.executorService = Executors.newFixedThreadPool(Math.max(1, config.getPrefetchThreads()),
+            new PrefetchThreadFactory());
     }
 
     @Override
@@ -78,23 +72,26 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
             StringBuilder path = new StringBuilder(SEGMENTS_PATH).append(bizCode);
             HashMap<String, String> params = new HashMap<>();
             params.put("segmentNum", String.valueOf(segmentNum));
-            String content = Http2Requester.executeGET(host, port, path.toString(), params);
-            Result<List<Segment>> result = JSON.parseObject(content, new TypeReference<>() {
+            String content = Http2Requester.executeGET(config, path.toString(), params);
+            Result<List<Segment>> result = OBJECT_MAPPER.readValue(content, new TypeReference<>() {
             });
+            if (!result.isSuccess()) {
+                throw new UidGenerateException(ErrorCode.UPSTREAM_UNAVAILABLE,
+                    "Segment server returned " + result.getCode() + ": " + result.getMsg());
+            }
             return result.getData();
         } catch (Exception e) {
-            e.printStackTrace();
+            if (e instanceof UidGenerateException uidGenerateException) {
+                throw uidGenerateException;
+            }
+            throw new UidGenerateException(ErrorCode.UPSTREAM_UNAVAILABLE,
+                "Get segments from remote [URL=" + this.uidGeneratorServerUir + "] error", e);
         }
-        return null;
     }
 
     @Override
     public void listener(SegmentPanel segmentPanel, int segmentSize) {
         AsyncHandleTask task = new AsyncHandleTask(segmentPanel, segmentSize);
-        if (executorService == null) {
-            task.run();
-            return;
-        }
         executorService.submit(task);
     }
 
@@ -109,9 +106,18 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
     public long getUID(String bizCode) throws UidGenerateException {
         StringBuilder path = new StringBuilder(SEGMENT_UID_PATH).append(bizCode);
         try {
-            String content = Http2Requester.executeGET(host, port, path.toString());
-            return Long.parseLong(content);
+            String content = Http2Requester.executeGET(config, path.toString());
+            Result<Long> result = OBJECT_MAPPER.readValue(content, new TypeReference<>() {
+            });
+            if (!result.isSuccess()) {
+                throw new UidGenerateException(ErrorCode.UPSTREAM_UNAVAILABLE,
+                    "Segment server returned " + result.getCode() + ": " + result.getMsg());
+            }
+            return result.getData();
         } catch (Exception e) {
+            if (e instanceof UidGenerateException uidGenerateException) {
+                throw uidGenerateException;
+            }
             throw new UidGenerateException("Get Uid from remote [URL=" + this.uidGeneratorServerUir + path + "] error",
                 e);
         }
@@ -121,6 +127,9 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
         return super.getUID(bizCode);
     }
 
+    public void shutdown() {
+        executorService.shutdownNow();
+    }
 
     class AsyncHandleTask implements Runnable {
 
@@ -146,10 +155,26 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
          */
         @Override
         public void run() {
-            String bizCode = segmentPanel.getBizCode();
-            List<Segment> segments = getSegments(bizCode, segmentSize);
-            segmentPanel.addSegment(segments);
-            segmentPanel.resetCounter();
+            try {
+                String bizCode = segmentPanel.getBizCode();
+                List<Segment> segments = getSegments(bizCode, segmentSize);
+                segmentPanel.addSegment(segments);
+                segmentPanel.resetCounter();
+            } finally {
+                segmentPanel.refillFinished();
+            }
+        }
+    }
+
+    private static class PrefetchThreadFactory implements ThreadFactory {
+
+        private final AtomicInteger threadNum = new AtomicInteger(1);
+
+        @Override
+        public Thread newThread(Runnable runnable) {
+            Thread thread = new Thread(runnable, "rain-segment-prefetch-" + threadNum.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
         }
     }
 }

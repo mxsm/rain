@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${RAIN_DATASOURCE_URL}
+    username: ${RAIN_DATASOURCE_USERNAME}
+    password: ${RAIN_DATASOURCE_PASSWORD}
+
+mxsm:
+  uid:
+    security:
+      enabled: ${RAIN_UID_SECURITY_ENABLED:true}
+      tokens: ${RAIN_UID_TOKENS}
+    snowflake:
+      container: ${RAIN_UID_SNOWFLAKE_CONTAINER:true}
+      pod-name: ${HOSTNAME}

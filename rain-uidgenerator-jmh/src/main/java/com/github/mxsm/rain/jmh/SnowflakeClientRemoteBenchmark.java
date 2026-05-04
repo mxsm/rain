@@ -39,7 +39,10 @@ public class SnowflakeClientRemoteBenchmark {
 
     @Setup
     public void init() {
-        uidClient = UidClient.builder().setUidGeneratorServerUir("172.23.186.56:8080").isSnowflakeUidFromRemote(true).build();
+        uidClient = UidClient.builder()
+            .setUidGeneratorServerUris(System.getProperty("rain.jmh.server", "http://127.0.0.1:8080"))
+            .isSnowflakeUidFromRemote(true)
+            .build();
     }
 
     @Benchmark

@@ -18,13 +18,17 @@
 
     <update id="updateAllocation">
         UPDATE mxsm_allocation
-        SET max_id = max_id + step * #{stepLength}
+        SET max_id = LAST_INSERT_ID(max_id + step * #{segmentNum})
         WHERE biz_code = #{bizCode}
     </update>
 
+    <select id="getLastInsertId" resultType="long">
+        SELECT LAST_INSERT_ID()
+    </select>
+
     <select id="getAllocation" resultType="com.github.mxsm.rain.uid.entity.AllocationEntity">
-        SELECT id, max_id as maxId, step
+        SELECT id, biz_code as bizCode, max_id as maxId, step
         FROM mxsm_allocation
-        WHERE biz_code = #{bizCode} FOR UPDATE
+        WHERE biz_code = #{bizCode}
     </select>
 </mapper>

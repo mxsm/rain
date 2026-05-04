@@ -1,5 +1,7 @@
 package com.github.mxsm.rain.uid.core.exception;
 
+import com.github.mxsm.rain.uid.core.common.ErrorCode;
+
 /**
  * @author mxsm
  * @date 2022/5/1 15:55
@@ -7,11 +9,14 @@ package com.github.mxsm.rain.uid.core.exception;
  */
 public class UidGenerateException extends  RuntimeException{
 
+    private final ErrorCode errorCode;
+
     /**
      * Constructs a new runtime exception with {@code null} as its detail message.  The cause is not initialized, and may
      * subsequently be initialized by a call to {@link #initCause}.
      */
     public UidGenerateException() {
+        this.errorCode = ErrorCode.INTERNAL_ERROR;
     }
 
     /**
@@ -23,6 +28,12 @@ public class UidGenerateException extends  RuntimeException{
      */
     public UidGenerateException(String message) {
         super(message);
+        this.errorCode = ErrorCode.INTERNAL_ERROR;
+    }
+
+    public UidGenerateException(ErrorCode errorCode, String message) {
+        super(message);
+        this.errorCode = errorCode;
     }
 
     /**
@@ -36,6 +47,12 @@ public class UidGenerateException extends  RuntimeException{
      */
     public UidGenerateException(String message, Throwable cause) {
         super(message, cause);
+        this.errorCode = ErrorCode.INTERNAL_ERROR;
+    }
+
+    public UidGenerateException(ErrorCode errorCode, String message, Throwable cause) {
+        super(message, cause);
+        this.errorCode = errorCode;
     }
 
     /**
@@ -49,6 +66,7 @@ public class UidGenerateException extends  RuntimeException{
      */
     public UidGenerateException(Throwable cause) {
         super(cause);
+        this.errorCode = ErrorCode.INTERNAL_ERROR;
     }
 
     /**
@@ -65,5 +83,10 @@ public class UidGenerateException extends  RuntimeException{
     public UidGenerateException(String message, Throwable cause, boolean enableSuppression,
         boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
+        this.errorCode = ErrorCode.INTERNAL_ERROR;
+    }
+
+    public ErrorCode getErrorCode() {
+        return errorCode;
     }
 }

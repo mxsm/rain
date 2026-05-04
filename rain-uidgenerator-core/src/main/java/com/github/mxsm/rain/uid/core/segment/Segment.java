@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class Segment {
 
+    public static final long EXHAUSTED = Long.MIN_VALUE;
+
     //this segment start number
     private long segmentStartNum;
 
@@ -22,21 +24,33 @@ public class Segment {
     //segment status
     private volatile boolean isOk = true;
 
+    public Segment() {
+    }
+
     public Segment(long segmentStartNum, int length) {
         this.segmentStartNum = segmentStartNum;
         this.length = length;
     }
 
     public long createSegmentUid(){
-        if(!isOk){
+        long uid = tryCreateSegmentUid();
+        if (uid == EXHAUSTED) {
             throw new SegmentOutOfBoundaryException();
         }
-        int incrementNum = increment.getAndIncrement();
-        if(incrementNum >= length){
-            isOk = false;
-            throw new SegmentOutOfBoundaryException();
+        return uid;
+    }
+
+    public long tryCreateSegmentUid() {
+        while (true) {
+            int incrementNum = increment.get();
+            if (incrementNum >= length) {
+                isOk = false;
+                return EXHAUSTED;
+            }
+            if (increment.compareAndSet(incrementNum, incrementNum + 1)) {
+                return segmentStartNum + incrementNum;
+            }
         }
-        return segmentStartNum + incrementNum;
     }
 
     public boolean isOk() {

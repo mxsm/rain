@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${RAIN_DATASOURCE_URL:jdbc:mysql://localhost:3306/uidgenerator?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${RAIN_DATASOURCE_USERNAME:rain}
+    password: ${RAIN_DATASOURCE_PASSWORD:rain}
+
+mxsm:
+  uid:
+    security:
+      enabled: ${RAIN_UID_SECURITY_ENABLED:false}

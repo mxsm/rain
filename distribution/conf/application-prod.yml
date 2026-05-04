@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${RAIN_DATASOURCE_URL}
+    username: ${RAIN_DATASOURCE_USERNAME}
+    password: ${RAIN_DATASOURCE_PASSWORD}
+
+mxsm:
+  uid:
+    security:
+      enabled: true
+      tokens: ${RAIN_UID_TOKENS}
+    snowflake:
+      container: true
+      pod-name: ${HOSTNAME}

@@ -9,6 +9,8 @@ Distributed global ID generation service, ID generation is divided into two mode
 
 How to use see the following introduction.
 
+Production deployment details are documented in [docs/production.md](docs/production.md).
+
 ## Quick Start
 
 ### 1. Install dependencies

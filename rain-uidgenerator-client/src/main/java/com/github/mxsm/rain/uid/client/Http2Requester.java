@@ -1,149 +1,101 @@
 package com.github.mxsm.rain.uid.client;
 
-
 import com.github.mxsm.rain.uid.client.exception.ClientHttpRequestException;
+import com.github.mxsm.rain.uid.client.exception.ClientValidationException;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import org.apache.hc.core5.concurrent.FutureCallback;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.core5.http.HttpResponse;
-import org.apache.hc.core5.http.Message;
-import org.apache.hc.core5.http.NameValuePair;
-import org.apache.hc.core5.http.impl.bootstrap.HttpAsyncRequester;
-import org.apache.hc.core5.http.message.BasicNameValuePair;
-import org.apache.hc.core5.http.nio.AsyncClientEndpoint;
-import org.apache.hc.core5.http.nio.entity.StringAsyncEntityConsumer;
-import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
-import org.apache.hc.core5.http.nio.support.BasicResponseConsumer;
-import org.apache.hc.core5.http2.HttpVersionPolicy;
-import org.apache.hc.core5.http2.config.H2Config;
-import org.apache.hc.core5.http2.impl.nio.bootstrap.H2RequesterBootstrap;
-import org.apache.hc.core5.io.CloseMode;
-import org.apache.hc.core5.reactor.IOReactorConfig;
-import org.apache.hc.core5.util.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * @author mxsm
- * @date 2022/5/5 8:14
- * @Since 1.0.0
+ * Shared HTTP/2-capable requester with endpoint failover.
  */
 public class Http2Requester {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Http2Requester.class);
-
-    private final static Http2Requester H2REQUESTER = new Http2Requester();
-
-    public static final int RCV_BUF_SIZE = 4 * 1024;
-
-    public static final int SND_BUF_SIZE = 4 * 1024;
-
-    private final IOReactorConfig ioReactorConfig;
-
-    private final H2Config h2Config;
-
-    private final HttpAsyncRequester requester;
+    private static final Map<Duration, HttpClient> CLIENTS = new ConcurrentHashMap<>();
 
     private Http2Requester() {
-        this.ioReactorConfig = IOReactorConfig.custom()
-            .setSoTimeout(5, TimeUnit.SECONDS)
-            .setSoKeepAlive(true)
-            .setRcvBufSize(RCV_BUF_SIZE)
-            .setSndBufSize(SND_BUF_SIZE)
-            .build();
-
-        this.h2Config = H2Config.custom()
-            .setPushEnabled(false)
-            .setMaxConcurrentStreams(100)
-            .build();
-
-        this.requester = H2RequesterBootstrap.bootstrap()
-            .setIOReactorConfig(ioReactorConfig)
-            .setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_2)
-            .setH2Config(h2Config).create();
-        initAndStart();
     }
 
-    private void initAndStart() {
+    public static String executeGET(Config config, String path) {
+        return executeGET(config, path, null);
+    }
 
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                LOGGER.info("HTTP requester shutting down");
-                requester.close(CloseMode.GRACEFUL);
+    public static String executeGET(Config config, String path, Map<String, String> params) {
+        List<URI> endpoints = config.getUidGeneratorServerUris();
+        if (endpoints == null || endpoints.isEmpty()) {
+            throw new ClientValidationException("At least one uid generator server URI is required");
+        }
+
+        int attempts = Math.max(1, config.getMaxRetries() + 1);
+        int startIndex = config.nextEndpointIndex(endpoints.size());
+        ClientHttpRequestException lastError = null;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            URI baseUri = endpoints.get((startIndex + attempt) % endpoints.size());
+            URI uri = buildUri(baseUri, path, params);
+            try {
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri)
+                    .timeout(config.getReadTimeout())
+                    .GET()
+                    .header("Accept", "application/json");
+                if (hasText(config.getToken())) {
+                    requestBuilder.header("Authorization", "Bearer " + config.getToken());
+                }
+                HttpResponse<String> response = client(config.getConnectTimeout())
+                    .send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    return response.body();
+                }
+                lastError = new ClientHttpRequestException(
+                    "HTTP Code:" + response.statusCode() + ", Message:" + response.body());
+            } catch (IOException ex) {
+                lastError = new ClientHttpRequestException("HTTP request failed: " + uri, ex);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new ClientHttpRequestException("HTTP request interrupted: " + uri, ex);
             }
-        });
-        requester.start();
+        }
+        throw lastError == null ? new ClientHttpRequestException("HTTP request failed") : lastError;
     }
 
-    public static String executeGET(String host, int port, String path)
-        throws ExecutionException, InterruptedException {
-        return executeGET(host, port, path, null);
+    private static HttpClient client(Duration connectTimeout) {
+        Duration timeout = connectTimeout == null ? Duration.ofSeconds(3) : connectTimeout;
+        return CLIENTS.computeIfAbsent(timeout, key -> HttpClient.newBuilder()
+            .connectTimeout(key)
+            .version(HttpClient.Version.HTTP_2)
+            .build());
     }
 
-    public static String executeGET(String host, int port, String path, Map<String, String> params)
-        throws ExecutionException, InterruptedException {
-
-        NameValuePair[] pairs = null;
+    private static URI buildUri(URI baseUri, String path, Map<String, String> params) {
+        String base = baseUri.toString().replaceAll("/+$", "");
+        String normalizedPath = path.startsWith("/") ? path : "/" + path;
+        StringBuilder builder = new StringBuilder(base).append(normalizedPath);
         if (params != null && !params.isEmpty()) {
-            int size = params.size();
-            pairs = new NameValuePair[size];
-            int index = 0;
-            Set<Entry<String, String>> entries = params.entrySet();
-            for (Entry<String, String> entry : entries) {
-                pairs[index++] = new BasicNameValuePair(entry.getKey(), entry.getValue());
+            builder.append('?');
+            boolean first = true;
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                if (!first) {
+                    builder.append('&');
+                }
+                builder.append(encode(entry.getKey())).append('=').append(encode(entry.getValue()));
+                first = false;
             }
         }
-        return H2REQUESTER.http2Get(host, port, path, pairs);
+        return URI.create(builder.toString());
     }
 
-    private String http2Get(String host, int port, String path, NameValuePair... params)
-        throws ExecutionException, InterruptedException {
-        Future<Message<HttpResponse, String>> execute = getMessageFuture(host, port, path, params);
-        Message<HttpResponse, String> httpResponseStringMessage = execute.get();
-        int code = httpResponseStringMessage.getHead().getCode();
-        if (code != 200) {
-            throw new ClientHttpRequestException(
-                "HTTP Code:" + code + ", Message:" + httpResponseStringMessage.getBody());
-        }
-        return httpResponseStringMessage.getBody();
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private Future<Message<HttpResponse, String>> getMessageFuture(String host, int port, String path,
-        NameValuePair[] params) throws InterruptedException, ExecutionException {
-        final HttpHost target = new HttpHost(host, port);
-        final Future<AsyncClientEndpoint> future = requester.connect(target, Timeout.ofSeconds(5));
-        final AsyncClientEndpoint clientEndpoint = future.get();
-        AsyncRequestBuilder asyncRequestBuilder = AsyncRequestBuilder.get()
-            .setHttpHost(target)
-            .setPath(path);
-        if (params != null && params.length != 0) {
-            asyncRequestBuilder.addParameters(params);
-        }
-        Future<Message<HttpResponse, String>> execute = clientEndpoint.execute(
-            asyncRequestBuilder.build(),
-            new BasicResponseConsumer<>(new StringAsyncEntityConsumer()),
-            new FutureCallback<>() {
-                @Override
-                public void completed(final Message<HttpResponse, String> message) {
-                    clientEndpoint.releaseAndReuse();
-                }
-
-                @Override
-                public void failed(final Exception ex) {
-                    clientEndpoint.releaseAndDiscard();
-                }
-
-                @Override
-                public void cancelled() {
-                    clientEndpoint.releaseAndDiscard();
-                }
-            });
-        return execute;
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }
