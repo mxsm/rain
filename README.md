@@ -13,9 +13,9 @@ How to use see the following introduction.
 
 ### 1. Install dependencies
 
-- JDK 11
+- JDK 25
 - MySQL8
-- Maven 3.8.5
+- Maven 3.9.15
 
 ### 2. Database initialization
 

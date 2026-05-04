@@ -6,7 +6,7 @@ import com.github.mxsm.rain.uid.core.segment.Segment;
 import com.github.mxsm.rain.uid.dto.BizCodeRegisterReqDto;
 import com.github.mxsm.rain.uid.service.AllocationService;
 import java.util.List;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
