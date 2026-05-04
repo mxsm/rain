@@ -9,7 +9,7 @@ import com.github.mxsm.rain.uid.config.SnowflakeUidGeneratorConfig;
 
 import com.github.mxsm.rain.uid.entity.SnowflakeNodeEntity;
 import java.util.Optional;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,12 +62,12 @@ public class DefaultSnowflakeServerUidGeneratorImpl extends AbstractSnowflakeUid
                 sf = new SnowflakeNodeEntity();
                 sf.setHostName(NetUtils.address4Long(hostName));
                 sf.setPort(port);
-                sf.setDescription("test");
+                sf.setDescription("");
                 sf.setDeployEnvType(deployEnvType);
                 snowflakeNodeDao.insertSnowflakeNode(sf);
             }
             long machineId = sf.getId().longValue();
-            if ((machineId & getBitsAllocator().getMaxMachineId()) == 0) {
+            if (machineId > getBitsAllocator().getMaxMachineId()) {
                 LOGGER.warn("get machine id from db is {}, greater than machine id max {}", machineId,
                     getBitsAllocator().getMaxMachineId());
                 machineId = randomMachineId();
