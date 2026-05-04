@@ -1,6 +1,5 @@
 package com.github.mxsm.rain.uid.core.segment;
 
-import com.github.mxsm.rain.uid.core.exception.SegmentOutOfBoundaryException;
 import com.github.mxsm.rain.uid.core.common.ErrorCode;
 import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import java.util.List;
@@ -20,7 +19,7 @@ import org.slf4j.LoggerFactory;
  */
 public class SegmentPanel {
 
-    private Logger LOGGER = LoggerFactory.getLogger(SegmentPanel.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SegmentPanel.class);
 
     private BlockingQueue<Segment> segmentQueue;
 
@@ -38,10 +37,17 @@ public class SegmentPanel {
 
     private int capacity;
 
+    private long waitTimeoutMillis;
+
     private final AtomicBoolean refillInProgress = new AtomicBoolean(false);
 
     public SegmentPanel(String bizCode, int capacity, int threshold, List<Segment> segments,
         SegmentConsumerListener listener) {
+        this(bizCode, capacity, threshold, segments, listener, 3000L);
+    }
+
+    public SegmentPanel(String bizCode, int capacity, int threshold, List<Segment> segments,
+        SegmentConsumerListener listener, long waitTimeoutMillis) {
 
         this.bizCode = bizCode;
         this.capacity = capacity <= 0 ? 16 : capacity;
@@ -50,7 +56,8 @@ public class SegmentPanel {
             this.segmentQueue.addAll(segments);
         }
         this.listener = listener;
-        this.threshold = threshold;
+        this.threshold = Math.max(0, Math.min(100, threshold));
+        this.waitTimeoutMillis = waitTimeoutMillis <= 0 ? 3000L : waitTimeoutMillis;
         this.currentSegment = this.segmentQueue.poll();
     }
 
@@ -75,7 +82,7 @@ public class SegmentPanel {
                 return;
             }
             maybeRequestRefill();
-            this.currentSegment = segmentQueue.poll(3, TimeUnit.SECONDS);
+            this.currentSegment = segmentQueue.poll(waitTimeoutMillis, TimeUnit.MILLISECONDS);
             if (this.currentSegment == null) {
                 throw new UidUnavailableException(ErrorCode.UID_UNAVAILABLE,
                     "No segment is available for bizCode " + bizCode);
@@ -108,17 +115,25 @@ public class SegmentPanel {
         }
     }
 
-    public void addSegment(Segment segment) {
-        this.segmentQueue.offer(segment);
+    public boolean addSegment(Segment segment) {
+        boolean added = this.segmentQueue.offer(segment);
+        if (!added) {
+            LOGGER.warn("Segment queue is full, discard allocated segment. bizCode={}", bizCode);
+        }
+        return added;
     }
 
-    public void addSegment(List<Segment> segments) {
+    public int addSegment(List<Segment> segments) {
         if (segments == null) {
-            return;
+            return 0;
         }
+        int added = 0;
         for (Segment segment : segments) {
-            this.addSegment(segment);
+            if (this.addSegment(segment)) {
+                added++;
+            }
         }
+        return added;
     }
 
     public String getBizCode() {

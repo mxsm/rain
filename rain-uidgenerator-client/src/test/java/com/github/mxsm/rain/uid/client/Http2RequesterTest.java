@@ -56,6 +56,14 @@ class Http2RequesterTest {
         assertEquals("authorized", Http2Requester.executeGET(config, "/uid"));
     }
 
+    @Test
+    void sendsPostRequests() throws Exception {
+        TestServer server = startMethodServer("POST");
+        Config config = config(server.uri());
+
+        assertEquals("POST", Http2Requester.executePOST(config, "/uid"));
+    }
+
     private Config config(String... uris) {
         Config config = new Config();
         config.setUidGeneratorServerUris(List.of(uris));
@@ -87,6 +95,25 @@ class Http2RequesterTest {
                 return;
             }
             write(exchange, 401, "unauthorized");
+        });
+        server.setExecutor(Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "test-http-server");
+            thread.setDaemon(true);
+            return thread;
+        }));
+        server.start();
+        servers.add(server);
+        return new TestServer(server);
+    }
+
+    private TestServer startMethodServer(String expectedMethod) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/uid", exchange -> {
+            if (expectedMethod.equals(exchange.getRequestMethod())) {
+                write(exchange, 200, exchange.getRequestMethod());
+                return;
+            }
+            write(exchange, 405, exchange.getRequestMethod());
         });
         server.setExecutor(Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "test-http-server");

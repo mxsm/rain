@@ -23,6 +23,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String API_KEY_HEADER = "X-API-Key";
 
+    private static final String ADMIN_SEGMENT_REGISTER_PATH = "/api/v1/segment/rg";
+
     private final UidSecurityProperties properties;
 
     private final ObjectMapper objectMapper;
@@ -34,7 +36,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
+        String path = pathWithinApplication(request);
         return !properties.isEnabled()
             || path.startsWith("/actuator/health")
             || path.startsWith("/actuator/info");
@@ -44,8 +46,9 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
         Set<String> allowedTokens = new HashSet<>(properties.getTokens());
+        Set<String> adminTokens = new HashSet<>(properties.getAdminTokens());
         String token = resolveToken(request);
-        if (allowedTokens.isEmpty() || !StringUtils.hasText(token) || !allowedTokens.contains(token)) {
+        if (!StringUtils.hasText(token) || !isAuthorized(request, token, allowedTokens, adminTokens)) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             objectMapper.writeValue(response.getOutputStream(),
@@ -53,6 +56,27 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isAuthorized(HttpServletRequest request, String token, Set<String> allowedTokens,
+        Set<String> adminTokens) {
+        if (isAdminEndpoint(request)) {
+            return adminTokens.contains(token);
+        }
+        return allowedTokens.contains(token) || adminTokens.contains(token);
+    }
+
+    private boolean isAdminEndpoint(HttpServletRequest request) {
+        return ADMIN_SEGMENT_REGISTER_PATH.equals(pathWithinApplication(request));
+    }
+
+    private String pathWithinApplication(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (StringUtils.hasText(contextPath) && uri.startsWith(contextPath)) {
+            return uri.substring(contextPath.length());
+        }
+        return uri;
     }
 
     private String resolveToken(HttpServletRequest request) {

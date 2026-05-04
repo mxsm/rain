@@ -6,12 +6,11 @@ import com.github.mxsm.rain.uid.core.segment.Segment;
 import com.github.mxsm.rain.uid.dto.BizCodeRegisterReqDto;
 import com.github.mxsm.rain.uid.observability.UidMetrics;
 import com.github.mxsm.rain.uid.service.AllocationService;
-import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,56 +21,50 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * @author mxsm
- * @date 2022/4/17 16:07
- * @Since 1.0.0
+ * Segment UID API.
  */
 @RestController
 @RequestMapping("/api/v1/segment")
 @Validated
 public class SegmentUidGeneratorController {
 
-    @Autowired
-    private AllocationService allocationService;
+    private final AllocationService allocationService;
 
-    @Autowired
-    private SegmentUidGenerator segmentUidGenerator;
+    private final SegmentUidGenerator segmentUidGenerator;
 
-    @Autowired
-    private UidMetrics uidMetrics;
+    private final UidMetrics uidMetrics;
 
-    @PostMapping("/rg")
-    public Result<Boolean> registerBizCode(@RequestBody @Valid BizCodeRegisterReqDto params){
-        String bizCode = params.getBizCode();
-        Integer step = params.getStep();
-        return Result.buildSuccess(allocationService.registerBizCode(bizCode,step));
+    public SegmentUidGeneratorController(AllocationService allocationService, SegmentUidGenerator segmentUidGenerator,
+        UidMetrics uidMetrics) {
+        this.allocationService = allocationService;
+        this.segmentUidGenerator = segmentUidGenerator;
+        this.uidMetrics = uidMetrics;
     }
 
-    /**
-     * get uid by bizcode
-     *
-     * @param bizCode
-     * @return
-     */
-    @GetMapping("/uid/{bizCode}")
-    public Result<Long> getUid(@PathVariable("bizCode") @NotBlank String bizCode) {
+    @PostMapping("/rg")
+    public Result<Boolean> registerBizCode(@RequestBody @Valid BizCodeRegisterReqDto params) {
+        return Result.buildSuccess(allocationService.registerBizCode(params.getBizCode(), params.getStep()));
+    }
+
+    @PostMapping("/uid/{bizCode}")
+    public Result<Long> createUid(@PathVariable("bizCode") @NotBlank String bizCode) {
         long uid = segmentUidGenerator.getUID(bizCode);
         uidMetrics.recordSegmentGenerated();
         return Result.buildSuccess(uid);
     }
 
     /**
-     * get bizcode step
-     *
-     * @param bizCode
-     * @param segmentNum number of step
-     * @return
+     * @deprecated UID generation has side effects. Use POST /api/v1/segment/uid/{bizCode}.
      */
+    @Deprecated(since = "1.0.1", forRemoval = false)
+    @GetMapping("/uid/{bizCode}")
+    public Result<Long> getUid(@PathVariable("bizCode") @NotBlank String bizCode) {
+        return createUid(bizCode);
+    }
+
     @GetMapping("/list/{bizCode}")
     public Result<List<Segment>> getStep(@PathVariable("bizCode") @NotBlank String bizCode,
         @RequestParam("segmentNum") @Min(1) @Max(10000) Integer segmentNum) {
-        List<Segment> segments = allocationService.getSegments(bizCode, segmentNum);
-        return Result.buildSuccess(segments);
+        return Result.buildSuccess(allocationService.getSegments(bizCode, segmentNum));
     }
-
 }

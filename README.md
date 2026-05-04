@@ -1,178 +1,104 @@
-# rain
+# Rain
 
-[![Publish package to the Maven Central Repository and GitHub Packages](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml/badge.svg?branch=main)](https://github.com/mxsm/rain/actions/workflows/maven-publish.yml)
+Rain is a Java 25 / Spring Boot 4 distributed UID generation service. It supports two generation modes:
 
-Distributed global ID generation service, ID generation is divided into two modes：
+- Segment IDs backed by MySQL atomic allocation.
+- Snowflake IDs with deterministic worker IDs.
 
-- **segment**
-- **snowflake**
+Production guidance is in [docs/production.md](docs/production.md). API details are in [docs/api.md](docs/api.md). Java SDK usage is in [docs/sdk.md](docs/sdk.md). Chinese docs are under [docs/cn](docs/cn).
 
-How to use see the following introduction.
-
-Production deployment details are documented in [docs/production.md](docs/production.md).
-
-## Quick Start
-
-### 1. Install dependencies
+## Requirements
 
 - JDK 25
-- MySQL8
-- Maven 3.9.15
+- Maven 3.9.15, preferably through `./mvnw`
+- MySQL 8 / InnoDB
+- Docker and Kubernetes for production delivery checks
 
-### 2. Database initialization
+## Build And Test
 
-#### 2.1 Create table
-
-Run the sql script to create the database and tables：
-
-```sql
-DROP DATABASE IF EXISTS `uidgenerator`;
-CREATE DATABASE `uidgenerator` ;
-use `uidgenerator`;
-
-DROP TABLE IF EXISTS mxsm_allocation;
-CREATE TABLE `mxsm_allocation` (
- `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
- `biz_code` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务编码(用户ID,使用业务方编码)',
- `max_id` bigint NOT NULL DEFAULT '1' COMMENT '最大值',
- `step` int NOT NULL COMMENT '步长',
- `description` varchar(255) COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '说明',
- `create_time` timestamp NOT NULL COMMENT '创建时间',
- `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
- PRIMARY KEY (`id`),
- UNIQUE KEY `biz_code_index` (`biz_code`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-DROP TABLE IF EXISTS mxsm_snowfalke_node;
-CREATE TABLE `mxsm_snowfalke_node` (
- `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
- `host_name` bigint NOT NULL COMMENT 'IP地址',
- `port` int NOT NULL DEFAULT '1' COMMENT '端口',
- `deploy_env_type` enum('ACTUAL','CONTAINER') COLLATE utf8mb4_general_ci DEFAULT 'ACTUAL' COMMENT '部署环境类型',
- `description` varchar(255) COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '说明',
- `create_time` timestamp NOT NULL COMMENT '创建时间',
- `update_time` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
- PRIMARY KEY (`id`),
- UNIQUE KEY `mix_index` (`host_name`,`port`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+```bash
+java -version
+./mvnw -q -Dflatten.skip=true clean verify
+./mvnw -q -Dflatten.skip=true -DskipTests -Prelease-rain-server install
 ```
 
-## 3. rain deployment and start
+`-Dflatten.skip=true` is recommended for local verification so exploratory Maven commands do not rewrite POM files.
 
-### 3.1  Via the provided package
+## Local Run
 
-**Step 1：Download binary package**
+Create the schema through Flyway by starting the server with a MySQL database available:
 
-It can be downloaded from the [latest stable release page](https://github.com/mxsm/rain/releases)  **`rain-server-1.0.1-SNAPSHOT.tar.gz`**
+```bash
+export SPRING_PROFILES_ACTIVE=local
+export RAIN_DATASOURCE_URL='jdbc:mysql://localhost:3306/uidgenerator?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+export RAIN_DATASOURCE_USERNAME=rain
+export RAIN_DATASOURCE_PASSWORD=rain
 
-```shell
-tar -zxvf rain-server-1.0.1-SNAPSHOT.tar.gz
-cd rain-server-1.0.1-SNAPSHOT/
+./mvnw -q -Dflatten.skip=true -DskipTests -pl rain-uidgenerator-server -am package
+java -jar rain-uidgenerator-server/target/rain-uidgenerator-server-1.0.1.jar
 ```
 
-**Step 2：Modify conf/application.properties**
+Register a segment business code:
 
-Modify the database-related configuration in the application.properties configuration:
-
-```properties
-spring.datasource.url=jdbc:mysql://ip:port/uidgenerator?useUnicode=true&characterEncoding=utf-8
-spring.datasource.username=xxx
-spring.datasource.password=xxxxx
+```bash
+curl -X POST http://localhost:8080/api/v1/segment/rg \
+  -H 'Content-Type: application/json' \
+  -d '{"bizCode":"orders","step":1000}'
 ```
 
-> Tips:  make sure the database address, name, port number, username, and password are correct.
+Generate IDs:
 
-**Step 3：Start server**
-
-```shell
-sh bin/start.sh
+```bash
+curl -X POST http://localhost:8080/api/v1/snowflake/uid
+curl -X POST http://localhost:8080/api/v1/segment/uid/orders
 ```
 
-![image-20220604145105893](https://raw.githubusercontent.com/mxsm/picture/main/blog/javase/jvmimage-20220604145105893.png)
+All `/api/v1/**` responses are wrapped in `Result<T>` with stable `code` values. UID generation uses POST. Legacy GET generation endpoints remain available for compatibility and return `Cache-Control: no-store`.
 
-### 4. Segment mode UID generation configuration
-
-Modify conf/application.properties
-
-| config                      | default value | explain                                                      |
-| --------------------------- | ------------- | ------------------------------------------------------------ |
-| mxsm.uid.segment.threshold  | 40            | In cache mode, when the local cache threshold is lower than or equal to 40%, the segment filling will be loaded to the database, and the value ranges from 0 to 100 |
-| mxsm.uid.segment.cache-size | 16            | Number of cached segments to load by default in cache mode   |
-
-The size of threshold and cache-size affects the frequency of segment obtained from the data. If cache-size is set too large, it will cause a waste of UID when the project is stopped for maintenance. But the cache-size is large enough that bizCode is loaded in memory before it can continue serving in the event of a database crash。
-
-### 5. Snowflake pattern UID generation configuration
-
-Modify conf/application.properties :
-
-| config                              | default value | explain                                                      |
-| ----------------------------------- | ------------- | ------------------------------------------------------------ |
-| mxsm.uid.snowflake.timestamp-bits   | 41            | The number of bits of timestamp for the snowflake algorithm  |
-| mxsm.uid.snowflake.machine-id-bits  | 10            | The number of bits in the machine id of the snowflake algorithm |
-| mxsm.uid.snowflake.sequence-bits    | 12            | The number of bits in the snowflake algorithm sequence number |
-| mxsm.uid.snowflake.container        | false         | Whether the deployment is containerized                      |
-| mxsm.uid.snowflake.time-bits-second | false         | timestamp Whether it is in seconds                           |
-| mxsm.uid.snowflake.epoch            | 2022-05-01    | timestamp The relative time in the format yyyy-MM-dd and before the current time |
-
-timestamp-bits、machine-id-bits、sequence-bits三个位数和加起来要等于63。
-
-### 6. Java SDK
-
-maven client dependence：
-
-```xml
-<dependency>
-  <groupId>com.github.mxsm</groupId>
-  <artifactId>rain-uidgenerator-client</artifactId>
-  <version>${latest version}</version>
-</dependency>
-```
-
-example:
+## Java SDK
 
 ```java
 UidClient client = UidClient.builder()
-            .setUidGeneratorServerUir("http://172.29.250.21:8080") //设置服务地址
-            .setSegmentNum(10) //设置获取的segment数量
-            .setThreshold(20) //设置阈值
-            .isSegmentUidFromRemote(false) //设置是否直接从服务器通过Restful接口的方式获取
-            .build();
-long uid = client.getSegmentUid("mxsm");
-long uidRemote = client.getSegmentUid("mxsm", true);
-long snowflake =  client.getSnowflakeUid();
+    .setUidGeneratorServerUris("http://rain-uidgenerator:8080")
+    .setToken(System.getenv("RAIN_UID_TOKEN"))
+    .setConnectTimeout(Duration.ofSeconds(1))
+    .setReadTimeout(Duration.ofSeconds(2))
+    .setMaxRetries(2)
+    .build();
+
+long id = client.getSegmentUid("orders");
 ```
 
+For local Snowflake mode the SDK no longer uses random worker IDs. Configure a stable `machineId` or Kubernetes pod ordinal:
 
-
-## Source Code Quick Start
-
-**Step 1： clone code**
-
-```shell
-git clone https://github.com/mxsm/rain.git
-cd rain
+```java
+UidClient local = UidClient.builder()
+    .isSnowflakeUidFromRemote(false)
+    .setMachineId(7)
+    .build();
 ```
 
-**Step 2：Modify application.properties in rain-uidgenerator-server**
+## Production
 
-```properties
-spring.datasource.url=jdbc:mysql://ip:port/uidgenerator?useUnicode=true&characterEncoding=utf-8
-spring.datasource.username=xxx
-spring.datasource.password=xxxxx
+Production mode expects externalized configuration:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod
+RAIN_DATASOURCE_URL=jdbc:mysql://mysql-writer.example:3306/uidgenerator?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=UTC
+RAIN_DATASOURCE_USERNAME=rain
+RAIN_DATASOURCE_PASSWORD=...
+RAIN_UID_SECURITY_ENABLED=true
+RAIN_UID_TOKENS=...
+RAIN_UID_ADMIN_TOKENS=...
+RAIN_UID_SNOWFLAKE_CONTAINER=true
 ```
 
-**Step 3：maven package server**
+Kubernetes manifests are provided under [deploy/kubernetes/rain.yaml](deploy/kubernetes/rain.yaml). The StatefulSet ordinal is used as the Snowflake worker ID in production container mode.
 
-```shell
-mvn clean package -DskipTests=true
-```
+## Observability
 
-**Step 4：Start server**
+- `/actuator/health/liveness`
+- `/actuator/health/readiness`
+- `/actuator/prometheus`
 
-```shell
-java -Xms1g -Xmx1g -jar ./rain-uidgenerator-server/target/rain-uidgenerator-server-1.0.1-SNAPSHOT.jar
-```
-
-## Documentation
-
-**TODO**
+Custom metrics include UID generation counters, segment allocation latency/failures, discarded segment count, clock rollback count, and worker ID.

@@ -12,6 +12,7 @@ mxsm:
     security:
       enabled: ${RAIN_UID_SECURITY_ENABLED:true}
       tokens: ${RAIN_UID_TOKENS}
+      admin-tokens: ${RAIN_UID_ADMIN_TOKENS}
     snowflake:
       container: ${RAIN_UID_SNOWFLAKE_CONTAINER:true}
       pod-name: ${HOSTNAME}

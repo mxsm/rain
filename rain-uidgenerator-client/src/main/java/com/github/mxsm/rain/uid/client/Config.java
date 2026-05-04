@@ -23,13 +23,27 @@ public class Config {
 
     private String token;
 
+    private Long machineId;
+
+    private boolean container;
+
+    private String podName;
+
+    private long maxBackwardMillis = 1000L;
+
     private Duration connectTimeout = Duration.ofSeconds(3);
 
     private Duration readTimeout = Duration.ofSeconds(5);
 
     private int maxRetries = 1;
 
+    private Duration retryBackoff = Duration.ofMillis(50);
+
+    private Duration failurePenalty = Duration.ofSeconds(1);
+
     private int prefetchThreads = 2;
+
+    private long segmentWaitTimeoutMillis = 3000L;
 
     //get segment number from remote server
     private int segmentNum = 16;
@@ -160,6 +174,38 @@ public class Config {
         this.token = token;
     }
 
+    public Long getMachineId() {
+        return machineId;
+    }
+
+    public void setMachineId(Long machineId) {
+        this.machineId = machineId;
+    }
+
+    public boolean isContainer() {
+        return container;
+    }
+
+    public void setContainer(boolean container) {
+        this.container = container;
+    }
+
+    public String getPodName() {
+        return podName;
+    }
+
+    public void setPodName(String podName) {
+        this.podName = podName;
+    }
+
+    public long getMaxBackwardMillis() {
+        return maxBackwardMillis;
+    }
+
+    public void setMaxBackwardMillis(long maxBackwardMillis) {
+        this.maxBackwardMillis = maxBackwardMillis;
+    }
+
     public Duration getConnectTimeout() {
         return connectTimeout;
     }
@@ -184,12 +230,36 @@ public class Config {
         this.maxRetries = maxRetries;
     }
 
+    public Duration getRetryBackoff() {
+        return retryBackoff;
+    }
+
+    public void setRetryBackoff(Duration retryBackoff) {
+        this.retryBackoff = retryBackoff;
+    }
+
+    public Duration getFailurePenalty() {
+        return failurePenalty;
+    }
+
+    public void setFailurePenalty(Duration failurePenalty) {
+        this.failurePenalty = failurePenalty;
+    }
+
     public int getPrefetchThreads() {
         return prefetchThreads;
     }
 
     public void setPrefetchThreads(int prefetchThreads) {
         this.prefetchThreads = prefetchThreads;
+    }
+
+    public long getSegmentWaitTimeoutMillis() {
+        return segmentWaitTimeoutMillis;
+    }
+
+    public void setSegmentWaitTimeoutMillis(long segmentWaitTimeoutMillis) {
+        this.segmentWaitTimeoutMillis = segmentWaitTimeoutMillis;
     }
 
     public boolean isSnowflakeUidFromRemote() {

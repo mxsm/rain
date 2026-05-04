@@ -18,6 +18,8 @@ public class SegmentUidGeneratorConfig {
 
     private int prefetchThreads = 4;
 
+    private long waitTimeoutMillis = 3000L;
+
     public int getCacheSize() {
         return cacheSize;
     }
@@ -40,5 +42,13 @@ public class SegmentUidGeneratorConfig {
 
     public void setPrefetchThreads(int prefetchThreads) {
         this.prefetchThreads = prefetchThreads;
+    }
+
+    public long getWaitTimeoutMillis() {
+        return waitTimeoutMillis;
+    }
+
+    public void setWaitTimeoutMillis(long waitTimeoutMillis) {
+        this.waitTimeoutMillis = waitTimeoutMillis;
     }
 }

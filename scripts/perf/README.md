@@ -7,10 +7,10 @@ export RAIN_BASE_URL=http://localhost:8080
 export RAIN_TOKEN=change-me
 export RAIN_BIZ_CODE=mxsm
 
-wrk -t4 -c128 -d60s -H "Authorization: Bearer ${RAIN_TOKEN}" \
+wrk -t4 -c128 -d60s -s scripts/perf/post.lua -H "Authorization: Bearer ${RAIN_TOKEN}" \
   "${RAIN_BASE_URL}/api/v1/snowflake/uid"
 
-wrk -t4 -c128 -d60s -H "Authorization: Bearer ${RAIN_TOKEN}" \
+wrk -t4 -c128 -d60s -s scripts/perf/post.lua -H "Authorization: Bearer ${RAIN_TOKEN}" \
   "${RAIN_BASE_URL}/api/v1/segment/uid/${RAIN_BIZ_CODE}"
 ```
 

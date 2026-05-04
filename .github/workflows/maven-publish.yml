@@ -1,8 +1,13 @@
 name: Publish package to the Maven Central Repository and GitHub Packages
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -13,10 +18,20 @@ jobs:
         with:
           java-version: '25'
           distribution: 'temurin'
+          cache: maven
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
       - name: Verify Maven build
-        run: mvn -q -Dflatten.skip=true clean verify
+        run: ./mvnw -q -Dflatten.skip=true clean verify
       - name: Build Docker image
         run: docker build -t rain-uidgenerator:ci .
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: rain-uidgenerator:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
       - name: Validate Kubernetes manifests

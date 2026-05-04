@@ -5,6 +5,7 @@ import com.github.mxsm.rain.uid.config.SegmentUidGeneratorConfig;
 import com.github.mxsm.rain.uid.core.segment.Segment;
 import com.github.mxsm.rain.uid.core.segment.SegmentConsumerListener;
 import com.github.mxsm.rain.uid.core.segment.SegmentPanel;
+import com.github.mxsm.rain.uid.observability.UidMetrics;
 import com.github.mxsm.rain.uid.service.AllocationService;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -24,10 +25,14 @@ public class SegmentConsumerListenerImpl implements SegmentConsumerListener {
 
     private final AllocationService allocationService;
 
+    private final UidMetrics uidMetrics;
+
     private final ExecutorService executorService;
 
-    public SegmentConsumerListenerImpl(AllocationService allocationService, SegmentUidGeneratorConfig config) {
+    public SegmentConsumerListenerImpl(AllocationService allocationService, SegmentUidGeneratorConfig config,
+        UidMetrics uidMetrics) {
         this.allocationService = allocationService;
+        this.uidMetrics = uidMetrics;
         int threads = Math.max(1, config.getPrefetchThreads());
         this.executorService = Executors.newFixedThreadPool(threads, new PrefetchThreadFactory());
     }
@@ -38,7 +43,8 @@ public class SegmentConsumerListenerImpl implements SegmentConsumerListener {
             try {
                 String bizCode = segmentPanel.getBizCode();
                 List<Segment> segments = allocationService.getSegments(bizCode, segmentNum);
-                segmentPanel.addSegment(segments);
+                int added = segmentPanel.addSegment(segments);
+                uidMetrics.recordSegmentDiscarded(segments.size() - added);
                 segmentPanel.resetCounter();
             } finally {
                 segmentPanel.refillFinished();

@@ -5,8 +5,9 @@ RUN chmod +x mvnw && ./mvnw -q -Dflatten.skip=true -DskipTests -pl rain-uidgener
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
-RUN addgroup --system rain && adduser --system --ingroup rain rain
+RUN groupadd --system --gid 10001 rain && \
+    useradd --system --uid 10001 --gid rain --home-dir /app --shell /usr/sbin/nologin rain
 COPY --from=build /workspace/rain-uidgenerator-server/target/rain-uidgenerator-server-*.jar /app/rain-server.jar
-USER rain
+USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-XX:+ExitOnOutOfMemoryError","-jar","/app/rain-server.jar"]

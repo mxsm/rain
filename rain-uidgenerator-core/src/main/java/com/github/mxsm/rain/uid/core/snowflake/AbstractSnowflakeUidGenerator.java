@@ -116,7 +116,8 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
                 if (offset <= maxBackwardMillis) {
-                    currentTimestamp = tillNextMillis(lastTimestamp);
+                    onClockMovedBackwards(offset);
+                    currentTimestamp = waitUntilMillis(lastTimestamp, maxBackwardMillis);
                 } else {
                     onClockMovedBackwards(offset);
                     throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
@@ -146,7 +147,8 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
                 if (offset <= maxBackwardMillis) {
-                    currentTimestamp = tillNextMillis(lastTimestamp);
+                    onClockMovedBackwards(offset);
+                    currentTimestamp = waitUntilMillis(lastTimestamp, maxBackwardMillis);
                 } else {
                     onClockMovedBackwards(offset);
                     throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
@@ -180,7 +182,8 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             if (currentTimestamp < lastCurrent) {
                 long offset = lastCurrent - currentTimestamp;
                 if (offset <= maxBackwardMillis) {
-                    currentTimestamp = tillNextMillis(lastCurrent);
+                    onClockMovedBackwards(offset);
+                    currentTimestamp = waitUntilMillis(lastCurrent, maxBackwardMillis);
                 } else {
                     onClockMovedBackwards(offset);
                     throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
@@ -212,6 +215,27 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
         return currentTimestamp;
     }
 
+    private long waitUntilMillis(long targetTimestamp, long maxWaitMillis) {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(Math.max(1, maxWaitMillis));
+        long currentTimestamp = System.currentTimeMillis();
+        while (currentTimestamp <= targetTimestamp) {
+            if (System.nanoTime() > deadline) {
+                onClockMovedBackwards(targetTimestamp - currentTimestamp);
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Time rollback wait exceeds " + maxWaitMillis + "ms");
+            }
+            try {
+                Thread.sleep(Math.min(5L, Math.max(1L, targetTimestamp - currentTimestamp)));
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Interrupted while waiting for clock recovery", ex);
+            }
+            currentTimestamp = System.currentTimeMillis();
+        }
+        return currentTimestamp;
+    }
+
     private long nextIdExt() {
 
         synchronized (lockExt) {
@@ -222,7 +246,7 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
                 long refusedSeconds = lastTimestamp - currentSecond;
                 onClockMovedBackwards(TimeUnit.SECONDS.toMillis(refusedSeconds));
                 if (refusedSeconds <= maxBackwardSeconds) {
-                    currentSecond = getNextSecond(lastTimestamp);
+                    currentSecond = waitUntilSecond(lastTimestamp, maxBackwardSeconds);
                 } else {
                     throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
                         "Time rollback exceeds " + maxBackwardSeconds + "s");
@@ -323,9 +347,37 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
     private long getNextSecond(long lastTimestamp) {
         long timestamp = getCurrentSecond();
         while (timestamp <= lastTimestamp) {
+            try {
+                Thread.sleep(1L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Interrupted while waiting for next second", ex);
+            }
             timestamp = getCurrentSecond();
         }
         return timestamp;
+    }
+
+    private long waitUntilSecond(long targetSecond, long maxWaitSeconds) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(Math.max(1, maxWaitSeconds));
+        long currentSecond = getCurrentSecond();
+        while (currentSecond <= targetSecond) {
+            if (System.nanoTime() > deadline) {
+                onClockMovedBackwards(TimeUnit.SECONDS.toMillis(targetSecond - currentSecond));
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Time rollback wait exceeds " + maxWaitSeconds + "s");
+            }
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Interrupted while waiting for clock recovery", ex);
+            }
+            currentSecond = getCurrentSecond();
+        }
+        return currentSecond;
     }
 
     /**
@@ -338,12 +390,6 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
                 "Timestamp bits is exhausted. Refusing UID generate. Now: " + currentSecond + ", epoch: " + epoch);
         }
         return currentSecond;
-    }
-
-    protected long randomMachineId() {
-        long machineId = (long) (Math.random() * getBitsAllocator().getMaxMachineId());
-        LOGGER.info("Random machine id is {}", machineId);
-        return machineId;
     }
 
     protected void onClockMovedBackwards(long rollbackMillis) {

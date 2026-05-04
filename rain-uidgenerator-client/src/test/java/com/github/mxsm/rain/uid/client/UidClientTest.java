@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.mxsm.rain.uid.client.service.SegmentUidGeneratorClientImpl;
 import com.github.mxsm.rain.uid.core.common.SnowflakeUidParsedResult;
+import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import com.github.mxsm.rain.uid.core.segment.Segment;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,10 +77,35 @@ class UidClientTest {
         }
     }
 
+    @Test
+    void localSnowflakeRequiresDeterministicMachineId() {
+        assertThrows(UidUnavailableException.class, () -> UidClient.builder()
+            .isSnowflakeUidFromRemote(false)
+            .build());
+    }
+
+    @Test
+    void localSnowflakeCanUseStatefulSetPodOrdinal() {
+        UidClient client = UidClient.builder()
+            .isSnowflakeUidFromRemote(false)
+            .isSegmentUidFromRemote(false)
+            .isContainer(true)
+            .setPodName("rain-uidgenerator-3")
+            .build();
+        try {
+            SnowflakeUidParsedResult result = client.parseSnowflakeUid(client.getSnowflakeUid());
+
+            assertEquals(3, result.getMachineId());
+        } finally {
+            client.shutdown();
+        }
+    }
+
     private UidClient localClient() {
         return UidClient.builder()
             .isSegmentUidFromRemote(false)
             .isSnowflakeUidFromRemote(false)
+            .setMachineId(1)
             .build();
     }
 

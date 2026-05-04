@@ -47,10 +47,12 @@ mxsm:
     security:
       enabled: ${RAIN_UID_SECURITY_ENABLED:false}
       tokens: ${RAIN_UID_TOKENS:}
+      admin-tokens: ${RAIN_UID_ADMIN_TOKENS:}
     segment:
       threshold: ${RAIN_UID_SEGMENT_THRESHOLD:40}
       cache-size: ${RAIN_UID_SEGMENT_CACHE_SIZE:16}
       prefetch-threads: ${RAIN_UID_SEGMENT_PREFETCH_THREADS:4}
+      wait-timeout-millis: ${RAIN_UID_SEGMENT_WAIT_TIMEOUT_MS:3000}
     snowflake:
       timestamp-bits: ${RAIN_UID_SNOWFLAKE_TIMESTAMP_BITS:41}
       machine-id-bits: ${RAIN_UID_SNOWFLAKE_MACHINE_ID_BITS:10}
