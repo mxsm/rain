@@ -2,7 +2,7 @@ package com.github.mxsm.rain.uid.handler;
 
 
 import com.github.mxsm.rain.uid.core.common.Result;
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
