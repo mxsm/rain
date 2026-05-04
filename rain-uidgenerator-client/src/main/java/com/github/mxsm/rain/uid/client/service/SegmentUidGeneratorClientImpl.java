@@ -55,7 +55,7 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
     @Override
     public SegmentPanel createSegmentPanel(String bizCode, int stepSize) {
         List<Segment> segments = getSegments(bizCode, stepSize);
-        return new SegmentPanel(bizCode, stepSize, threshold, segments, this);
+        return new SegmentPanel(bizCode, stepSize, threshold, segments, this, config.getSegmentWaitTimeoutMillis());
 
     }
 
@@ -106,7 +106,7 @@ public class SegmentUidGeneratorClientImpl extends AbstractSegmentUidGenerator i
     public long getUID(String bizCode) throws UidGenerateException {
         StringBuilder path = new StringBuilder(SEGMENT_UID_PATH).append(bizCode);
         try {
-            String content = Http2Requester.executeGET(config, path.toString());
+            String content = Http2Requester.executePOST(config, path.toString());
             Result<Long> result = OBJECT_MAPPER.readValue(content, new TypeReference<>() {
             });
             if (!result.isSuccess()) {

@@ -1,8 +1,11 @@
 package com.github.mxsm.rain.uid.core.segment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +56,21 @@ class SegmentPanelTest {
 
         assertEquals(800, ids.size());
         assertEquals(800, new HashSet<>(ids).size());
+    }
+
+    @Test
+    void throwsUnavailableWhenNoSegmentArrivesBeforeTimeout() {
+        SegmentPanel panel = new SegmentPanel("biz", 1, 50, List.of(), null, 10);
+
+        assertThrows(UidUnavailableException.class, panel::getUid);
+    }
+
+    @Test
+    void reportsRejectedSegmentsWhenQueueIsFull() {
+        SegmentPanel panel = new SegmentPanel("biz", 1, 50, List.of(new Segment(1, 100)), null);
+
+        assertTrue(panel.addSegment(new Segment(100, 100)));
+        assertFalse(panel.addSegment(new Segment(200, 100)));
     }
 
     private static List<Segment> segments(AtomicLong nextStart, int segmentNum) {

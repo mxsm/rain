@@ -28,9 +28,9 @@ public class DefaultSnowflakeServerUidGeneratorImpl extends AbstractSnowflakeUid
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultSnowflakeServerUidGeneratorImpl.class);
 
-    private static String EPOCH_DEFAULT = "2022-05-01";
+    private static final String EPOCH_DEFAULT = "2022-05-01";
 
-    private SnowflakeNodeDao snowflakeNodeDao;
+    private final SnowflakeNodeDao snowflakeNodeDao;
 
     private final SnowflakeUidGeneratorConfig config;
 
@@ -42,7 +42,7 @@ public class DefaultSnowflakeServerUidGeneratorImpl extends AbstractSnowflakeUid
     @Value("${server.address:}")
     private String hostName;
 
-    private DeployEnvType deployEnvType;
+    private final DeployEnvType deployEnvType;
 
     public DefaultSnowflakeServerUidGeneratorImpl(SnowflakeUidGeneratorConfig config,
         SnowflakeNodeDao snowflakeNodeDao, UidMetrics uidMetrics) {

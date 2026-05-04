@@ -8,6 +8,7 @@ import com.github.mxsm.rain.uid.core.common.ErrorCode;
 import com.github.mxsm.rain.uid.core.common.Result;
 import com.github.mxsm.rain.uid.core.SnowflakeUidGenerator;
 import com.github.mxsm.rain.uid.core.exception.UidGenerateException;
+import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import com.github.mxsm.rain.uid.core.snowflake.AbstractSnowflakeUidGenerator;
 
 
@@ -27,15 +28,26 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
     private boolean snowflakeUidFromRemote;
 
     public SnowflakeUidGeneratorClientImpl(Config config) {
-        super(config.getEpoch(), config.isTimeBitsSecond(),config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits());
+        super(config.getEpoch(), config.isTimeBitsSecond(), config.getTimestampBits(), config.getMachineIdBits(),
+            config.getSequenceBits(), config.getMaxBackwardMillis());
         this.config = config;
         this.snowflakeUidFromRemote = config.isSnowflakeUidFromRemote();
-        super.getBitsAllocator().setMachineId(getMachineId());
+        if (!snowflakeUidFromRemote) {
+            super.getBitsAllocator().setMachineId(getMachineId());
+        }
     }
 
     @Override
     public long getMachineId() {
-        return randomMachineId();
+        Long configuredMachineId = config.getMachineId();
+        if (configuredMachineId != null) {
+            return validateMachineId(configuredMachineId);
+        }
+        if (config.isContainer()) {
+            return validateMachineId(parsePodOrdinal(config.getPodName()));
+        }
+        throw new UidUnavailableException(ErrorCode.WORKER_ID_UNAVAILABLE,
+            "Local snowflake machineId must be configured, or container podName must contain a StatefulSet ordinal");
     }
 
     /**
@@ -51,7 +63,7 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
 
     public long getUidFromRemote() {
         try {
-            String content = Http2Requester.executeGET(config, SNOWFLAKE_UDI_PATH);
+            String content = Http2Requester.executePOST(config, SNOWFLAKE_UDI_PATH);
             Result<Long> result = OBJECT_MAPPER.readValue(content, new TypeReference<>() {
             });
             if (!result.isSuccess()) {
@@ -64,6 +76,32 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
                 throw uidGenerateException;
             }
             throw new UidGenerateException("Get Uid from remote [URL=" + SNOWFLAKE_UDI_PATH + "] error", e);
+        }
+    }
+
+    private long validateMachineId(long machineId) {
+        if (machineId < 0 || machineId > getBitsAllocator().getMaxMachineId()) {
+            throw new UidUnavailableException(ErrorCode.WORKER_ID_UNAVAILABLE,
+                "machineId " + machineId + " is outside 0-" + getBitsAllocator().getMaxMachineId());
+        }
+        return machineId;
+    }
+
+    private long parsePodOrdinal(String podName) {
+        if (podName == null || podName.isBlank()) {
+            throw new UidUnavailableException(ErrorCode.WORKER_ID_UNAVAILABLE,
+                "podName must be configured for local snowflake container mode");
+        }
+        int dashIndex = podName.lastIndexOf('-');
+        if (dashIndex < 0 || dashIndex == podName.length() - 1) {
+            throw new UidUnavailableException(ErrorCode.WORKER_ID_UNAVAILABLE,
+                "Unable to parse StatefulSet ordinal from podName: " + podName);
+        }
+        try {
+            return Long.parseLong(podName.substring(dashIndex + 1));
+        } catch (NumberFormatException ex) {
+            throw new UidUnavailableException(ErrorCode.WORKER_ID_UNAVAILABLE,
+                "Unable to parse StatefulSet ordinal from podName: " + podName, ex);
         }
     }
 }

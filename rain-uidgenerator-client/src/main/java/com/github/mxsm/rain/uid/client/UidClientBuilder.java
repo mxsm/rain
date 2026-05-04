@@ -37,6 +37,26 @@ public final class UidClientBuilder {
         return this;
     }
 
+    public UidClientBuilder setMachineId(long machineId) {
+        this.config.setMachineId(machineId);
+        return this;
+    }
+
+    public UidClientBuilder isContainer(boolean container) {
+        this.config.setContainer(container);
+        return this;
+    }
+
+    public UidClientBuilder setPodName(String podName) {
+        this.config.setPodName(podName);
+        return this;
+    }
+
+    public UidClientBuilder setMaxBackwardMillis(long maxBackwardMillis) {
+        this.config.setMaxBackwardMillis(maxBackwardMillis);
+        return this;
+    }
+
     public UidClientBuilder setConnectTimeout(Duration connectTimeout) {
         this.config.setConnectTimeout(connectTimeout);
         return this;
@@ -52,8 +72,23 @@ public final class UidClientBuilder {
         return this;
     }
 
+    public UidClientBuilder setRetryBackoff(Duration retryBackoff) {
+        this.config.setRetryBackoff(retryBackoff);
+        return this;
+    }
+
+    public UidClientBuilder setFailurePenalty(Duration failurePenalty) {
+        this.config.setFailurePenalty(failurePenalty);
+        return this;
+    }
+
     public UidClientBuilder setPrefetchThreads(int prefetchThreads) {
         this.config.setPrefetchThreads(prefetchThreads);
+        return this;
+    }
+
+    public UidClientBuilder setSegmentWaitTimeoutMillis(long segmentWaitTimeoutMillis) {
+        this.config.setSegmentWaitTimeoutMillis(segmentWaitTimeoutMillis);
         return this;
     }
 

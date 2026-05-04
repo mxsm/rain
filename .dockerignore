@@ -1,0 +1,8 @@
+.git
+.idea
+**/target
+**/.flattened-pom.xml
+*.tar
+*.tar.gz
+*.zip
+HELP.md

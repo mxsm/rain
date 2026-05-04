@@ -13,6 +13,8 @@ public class UidSecurityProperties {
 
     private List<String> tokens = new ArrayList<>();
 
+    private List<String> adminTokens = new ArrayList<>();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -26,6 +28,14 @@ public class UidSecurityProperties {
     }
 
     public void setTokens(List<String> tokens) {
-        this.tokens = tokens;
+        this.tokens = tokens == null ? new ArrayList<>() : tokens;
+    }
+
+    public List<String> getAdminTokens() {
+        return adminTokens;
+    }
+
+    public void setAdminTokens(List<String> adminTokens) {
+        this.adminTokens = adminTokens == null ? new ArrayList<>() : adminTokens;
     }
 }

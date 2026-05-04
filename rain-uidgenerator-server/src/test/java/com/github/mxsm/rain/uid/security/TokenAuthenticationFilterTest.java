@@ -53,4 +53,51 @@ class TokenAuthenticationFilterTest {
 
         assertEquals(200, response.getStatus());
     }
+
+    @Test
+    void rejectsGenerateTokenForAdminEndpoint() throws Exception {
+        UidSecurityProperties properties = new UidSecurityProperties();
+        properties.setEnabled(true);
+        properties.setTokens(List.of("generate"));
+        properties.setAdminTokens(List.of("admin"));
+        TokenAuthenticationFilter filter = new TokenAuthenticationFilter(properties, new ObjectMapper());
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/segment/rg");
+        request.addHeader("Authorization", "Bearer generate");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(401, response.getStatus());
+    }
+
+    @Test
+    void acceptsAdminTokenForAdminEndpoint() throws Exception {
+        UidSecurityProperties properties = new UidSecurityProperties();
+        properties.setEnabled(true);
+        properties.setTokens(List.of("generate"));
+        properties.setAdminTokens(List.of("admin"));
+        TokenAuthenticationFilter filter = new TokenAuthenticationFilter(properties, new ObjectMapper());
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/segment/rg");
+        request.addHeader("Authorization", "Bearer admin");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    void acceptsAdminTokenForGenerateEndpoint() throws Exception {
+        UidSecurityProperties properties = new UidSecurityProperties();
+        properties.setEnabled(true);
+        properties.setAdminTokens(List.of("admin"));
+        TokenAuthenticationFilter filter = new TokenAuthenticationFilter(properties, new ObjectMapper());
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/snowflake/uid");
+        request.addHeader("Authorization", "Bearer admin");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(200, response.getStatus());
+    }
 }

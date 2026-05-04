@@ -40,7 +40,10 @@ public class SnowflakeClientLocalBenchmark {
 
     @Setup
     public void init() {
-        uidClient = UidClient.builder().isSnowflakeUidFromRemote(false).build();
+        uidClient = UidClient.builder()
+            .isSnowflakeUidFromRemote(false)
+            .setMachineId(1)
+            .build();
     }
 
     @Benchmark

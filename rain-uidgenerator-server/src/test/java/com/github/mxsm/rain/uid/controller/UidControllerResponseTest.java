@@ -1,6 +1,7 @@
 package com.github.mxsm.rain.uid.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,7 +15,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -25,21 +25,17 @@ class UidControllerResponseTest {
     @BeforeEach
     void setUp() {
         UidMetrics metrics = new UidMetrics(new SimpleMeterRegistry());
-        SegmentUidGeneratorController segmentController = new SegmentUidGeneratorController();
-        ReflectionTestUtils.setField(segmentController, "allocationService", allocationService());
-        ReflectionTestUtils.setField(segmentController, "segmentUidGenerator", segmentUidGenerator());
-        ReflectionTestUtils.setField(segmentController, "uidMetrics", metrics);
-
-        SnowflakeUidGeneratorController snowflakeController = new SnowflakeUidGeneratorController();
-        ReflectionTestUtils.setField(snowflakeController, "snowflakeUidGenerator", snowflakeUidGenerator());
-        ReflectionTestUtils.setField(snowflakeController, "uidMetrics", metrics);
+        SegmentUidGeneratorController segmentController = new SegmentUidGeneratorController(allocationService(),
+            segmentUidGenerator(), metrics);
+        SnowflakeUidGeneratorController snowflakeController = new SnowflakeUidGeneratorController(
+            snowflakeUidGenerator(), metrics);
 
         mockMvc = MockMvcBuilders.standaloneSetup(segmentController, snowflakeController).build();
     }
 
     @Test
     void segmentUidReturnsResultEnvelope() throws Exception {
-        mockMvc.perform(get("/api/v1/segment/uid/biz"))
+        mockMvc.perform(post("/api/v1/segment/uid/biz"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("SUCCESS"))
             .andExpect(jsonPath("$.code").value("SUCCESS"))
@@ -48,10 +44,17 @@ class UidControllerResponseTest {
 
     @Test
     void snowflakeUidReturnsResultEnvelope() throws Exception {
-        mockMvc.perform(get("/api/v1/snowflake/uid"))
+        mockMvc.perform(post("/api/v1/snowflake/uid"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("SUCCESS"))
             .andExpect(jsonPath("$.code").value("SUCCESS"))
+            .andExpect(jsonPath("$.data").value(200));
+    }
+
+    @Test
+    void deprecatedGetUidStillWorks() throws Exception {
+        mockMvc.perform(get("/api/v1/snowflake/uid"))
+            .andExpect(status().isOk())
             .andExpect(jsonPath("$.data").value(200));
     }
 

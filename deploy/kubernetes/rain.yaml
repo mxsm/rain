@@ -16,6 +16,7 @@ data:
   RAIN_UID_SNOWFLAKE_CONTAINER: "true"
   RAIN_UID_SEGMENT_CACHE_SIZE: "32"
   RAIN_UID_SEGMENT_PREFETCH_THREADS: "4"
+  RAIN_UID_SEGMENT_WAIT_TIMEOUT_MS: "3000"
 ---
 apiVersion: v1
 kind: Secret
@@ -26,6 +27,23 @@ type: Opaque
 stringData:
   RAIN_DATASOURCE_PASSWORD: "change-me"
   RAIN_UID_TOKENS: "change-me"
+  RAIN_UID_ADMIN_TOKENS: "change-me-admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rain-uidgenerator-headless
+  namespace: rain
+  labels:
+    app: rain-uidgenerator
+spec:
+  clusterIP: None
+  selector:
+    app: rain-uidgenerator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
 ---
 apiVersion: v1
 kind: Service
@@ -35,7 +53,7 @@ metadata:
   labels:
     app: rain-uidgenerator
 spec:
-  clusterIP: None
+  type: ClusterIP
   selector:
     app: rain-uidgenerator
   ports:
@@ -49,7 +67,7 @@ metadata:
   name: rain-uidgenerator
   namespace: rain
 spec:
-  serviceName: rain-uidgenerator
+  serviceName: rain-uidgenerator-headless
   replicas: 3
   selector:
     matchLabels:
@@ -60,9 +78,15 @@ spec:
         app: rain-uidgenerator
     spec:
       terminationGracePeriodSeconds: 35
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: rain-uidgenerator
-          image: ghcr.io/mxsm/rain:latest
+          image: ghcr.io/mxsm/rain:1.0.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -71,7 +95,12 @@ spec:
             - configMapRef:
                 name: rain-uidgenerator-config
             - secretRef:
-                name: rain-uidgenerator-secret
+              name: rain-uidgenerator-secret
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 250m
@@ -86,6 +115,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 2
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -93,6 +123,14 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 2
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 30
           lifecycle:
             preStop:
               exec:

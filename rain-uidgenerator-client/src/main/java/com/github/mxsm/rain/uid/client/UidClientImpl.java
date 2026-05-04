@@ -11,11 +11,11 @@ import com.github.mxsm.rain.uid.core.common.SnowflakeUidParsedResult;
  */
 public class UidClientImpl implements UidClient {
 
-    private SegmentUidGeneratorClientImpl segmentService;
+    private final SegmentUidGeneratorClientImpl segmentService;
 
-    private SnowflakeUidGeneratorClientImpl snowflakeService;
+    private final SnowflakeUidGeneratorClientImpl snowflakeService;
 
-    private boolean segmentUidFromRemote;
+    private final boolean segmentUidFromRemote;
 
     public UidClientImpl(Config config) {
 

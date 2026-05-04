@@ -11,7 +11,6 @@ import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,11 +24,14 @@ public class AllocationServiceImpl implements AllocationService{
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AllocationServiceImpl.class);
 
-    @Autowired
-    private AllocationDao allocationDao;
+    private final AllocationDao allocationDao;
 
-    @Autowired
-    private UidMetrics uidMetrics;
+    private final UidMetrics uidMetrics;
+
+    public AllocationServiceImpl(AllocationDao allocationDao, UidMetrics uidMetrics) {
+        this.allocationDao = allocationDao;
+        this.uidMetrics = uidMetrics;
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -42,7 +44,19 @@ public class AllocationServiceImpl implements AllocationService{
             throw new UidGenerateException(ErrorCode.BIZ_CODE_NOT_FOUND, "bizCode not registered: " + bizCode);
         }
         Integer stepLength = allocation.getStep();
-        long totalLength = Math.multiplyExact(stepLength.longValue(), segmentNum);
+        if (stepLength == null || stepLength <= 0) {
+            uidMetrics.recordSegmentAllocationFailure();
+            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
+                "Invalid step for bizCode " + bizCode);
+        }
+        long totalLength;
+        try {
+            totalLength = Math.multiplyExact(stepLength.longValue(), segmentNum);
+        } catch (ArithmeticException ex) {
+            uidMetrics.recordSegmentAllocationFailure();
+            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
+                "Segment allocation overflows for bizCode " + bizCode, ex);
+        }
         int updated = allocationDao.updateAllocation(segmentNum, bizCode);
         if (updated != 1) {
             uidMetrics.recordSegmentAllocationFailure();
