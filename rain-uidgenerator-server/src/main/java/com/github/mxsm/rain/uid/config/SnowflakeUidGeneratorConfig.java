@@ -22,6 +22,12 @@ public class SnowflakeUidGeneratorConfig {
 
     private String epoch;
 
+    private Long machineId;
+
+    private String podName;
+
+    private long maxBackwardMillis = 1000L;
+
     public String getEpoch() {
         return epoch;
     }
@@ -68,5 +74,29 @@ public class SnowflakeUidGeneratorConfig {
 
     public void setTimeBitsSecond(boolean timeBitsSecond) {
         this.timeBitsSecond = timeBitsSecond;
+    }
+
+    public Long getMachineId() {
+        return machineId;
+    }
+
+    public void setMachineId(Long machineId) {
+        this.machineId = machineId;
+    }
+
+    public String getPodName() {
+        return podName;
+    }
+
+    public void setPodName(String podName) {
+        this.podName = podName;
+    }
+
+    public long getMaxBackwardMillis() {
+        return maxBackwardMillis;
+    }
+
+    public void setMaxBackwardMillis(long maxBackwardMillis) {
+        this.maxBackwardMillis = maxBackwardMillis;
     }
 }

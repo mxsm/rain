@@ -4,6 +4,7 @@ package com.github.mxsm.rain.uid.controller;
 import com.github.mxsm.rain.uid.core.SnowflakeUidGenerator;
 import com.github.mxsm.rain.uid.core.common.Result;
 import com.github.mxsm.rain.uid.core.common.SnowflakeUidParsedResult;
+import com.github.mxsm.rain.uid.observability.UidMetrics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,9 +23,14 @@ public class SnowflakeUidGeneratorController {
     @Autowired
     private SnowflakeUidGenerator snowflakeUidGenerator;
 
+    @Autowired
+    private UidMetrics uidMetrics;
+
     @GetMapping("/uid")
-    public long getUid() {
-        return snowflakeUidGenerator.getUID();
+    public Result<Long> getUid() {
+        long uid = snowflakeUidGenerator.getUID();
+        uidMetrics.recordSnowflakeGenerated();
+        return Result.buildSuccess(uid);
     }
 
     @GetMapping("/parse/{uid}")

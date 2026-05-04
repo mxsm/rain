@@ -4,6 +4,8 @@ package com.github.mxsm.rain.uid.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 /**
  * @author mxsm
@@ -14,9 +16,11 @@ import jakarta.validation.constraints.NotNull;
 public class BizCodeRegisterReqDto {
 
     @NotEmpty
+    @Size(max = 128)
     private String bizCode;
 
     @NotNull
+    @Positive
     private Integer step;
 
     public String getBizCode() {

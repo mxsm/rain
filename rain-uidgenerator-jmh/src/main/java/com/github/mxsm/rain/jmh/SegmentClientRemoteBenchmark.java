@@ -40,7 +40,11 @@ public class SegmentClientRemoteBenchmark {
 
     @Setup
     public void init() {
-        uidClient = UidClient.builder().setUidGeneratorServerUir("172.23.186.56:8080").setSegmentNum(32).isSegmentUidFromRemote(true).build();
+        uidClient = UidClient.builder()
+            .setUidGeneratorServerUris(System.getProperty("rain.jmh.server", "http://127.0.0.1:8080"))
+            .setSegmentNum(32)
+            .isSegmentUidFromRemote(true)
+            .build();
     }
 
     @Benchmark

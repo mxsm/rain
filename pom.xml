@@ -52,6 +52,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <spring.boot.version>4.0.6</spring.boot.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
         <revision>1.0.1</revision>
         <maven.flatten.version>1.2.5</maven.flatten.version>
     </properties>
@@ -79,10 +80,13 @@
             </dependency>
 
             <dependency>
-                <groupId>com.alibaba</groupId>
-                <artifactId>fastjson</artifactId>
-                <version>1.2.76</version>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -105,8 +109,8 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
-                    <version>3.3.0</version>
-                </plugin>
+                <version>3.3.0</version>
+            </plugin>
             </plugins>
         </pluginManagement>
         <plugins>

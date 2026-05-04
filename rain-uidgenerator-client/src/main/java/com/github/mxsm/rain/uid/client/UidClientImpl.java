@@ -3,11 +3,6 @@ package com.github.mxsm.rain.uid.client;
 import com.github.mxsm.rain.uid.client.service.SegmentUidGeneratorClientImpl;
 import com.github.mxsm.rain.uid.client.service.SnowflakeUidGeneratorClientImpl;
 import com.github.mxsm.rain.uid.core.common.SnowflakeUidParsedResult;
-import com.github.mxsm.rain.uid.core.snowflake.BitsAllocator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author mxsm
@@ -22,23 +17,11 @@ public class UidClientImpl implements UidClient {
 
     private boolean segmentUidFromRemote;
 
-    private ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-        new ThreadFactory() {
-            AtomicInteger threadNum = new AtomicInteger(1);
-            @Override
-            public Thread newThread(Runnable run) {
-                Thread thread = new Thread(run, "async-get-segments-thread-" + threadNum.getAndIncrement());
-                thread.setDaemon(false);
-                return thread;
-            }
-        });
-
     public UidClientImpl(Config config) {
 
         this.segmentService = new SegmentUidGeneratorClientImpl(config);
         this.snowflakeService = new SnowflakeUidGeneratorClientImpl(config);
         this.segmentUidFromRemote = config.isSegmentUidFromRemote();
-       // Runtime.getRuntime().addShutdownHook(new Thread(() -> executorService.shutdown()));
     }
 
 
@@ -90,6 +73,6 @@ public class UidClientImpl implements UidClient {
 
     @Override
     public void shutdown() {
-        executorService.shutdownNow();
+        segmentService.shutdown();
     }
 }

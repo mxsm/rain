@@ -16,6 +16,8 @@ public class SegmentUidGeneratorConfig {
 
     private int cacheSize;
 
+    private int prefetchThreads = 4;
+
     public int getCacheSize() {
         return cacheSize;
     }
@@ -30,5 +32,13 @@ public class SegmentUidGeneratorConfig {
 
     public void setThreshold(int threshold) {
         this.threshold = threshold;
+    }
+
+    public int getPrefetchThreads() {
+        return prefetchThreads;
+    }
+
+    public void setPrefetchThreads(int prefetchThreads) {
+        this.prefetchThreads = prefetchThreads;
     }
 }

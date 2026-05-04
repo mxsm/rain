@@ -1,8 +1,11 @@
 package com.github.mxsm.rain.uid.client.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mxsm.rain.uid.client.Config;
 import com.github.mxsm.rain.uid.client.Http2Requester;
-import com.github.mxsm.rain.uid.client.utils.UrlUtils;
+import com.github.mxsm.rain.uid.core.common.ErrorCode;
+import com.github.mxsm.rain.uid.core.common.Result;
 import com.github.mxsm.rain.uid.core.SnowflakeUidGenerator;
 import com.github.mxsm.rain.uid.core.exception.UidGenerateException;
 import com.github.mxsm.rain.uid.core.snowflake.AbstractSnowflakeUidGenerator;
@@ -15,32 +18,19 @@ import com.github.mxsm.rain.uid.core.snowflake.AbstractSnowflakeUidGenerator;
  */
 public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerator implements SnowflakeUidGenerator {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     public static final String SNOWFLAKE_UDI_PATH = "/api/v1/snowflake/uid";
 
-    private String uidGeneratorServerUir;
+    private Config config;
 
     private boolean snowflakeUidFromRemote;
 
-    private String host;
-
-    private int port;
-
     public SnowflakeUidGeneratorClientImpl(Config config) {
         super(config.getEpoch(), config.isTimeBitsSecond(),config.getTimestampBits(), config.getMachineIdBits(), config.getSequenceBits());
-        this.uidGeneratorServerUir = config.getUidGeneratorServerUir();
+        this.config = config;
         this.snowflakeUidFromRemote = config.isSnowflakeUidFromRemote();
         super.getBitsAllocator().setMachineId(getMachineId());
-        parseURL();
-    }
-
-    private void parseURL() {
-
-        if(!snowflakeUidFromRemote){
-            return;
-        }
-        String[] sts = UrlUtils.parseUriAndPort(this.uidGeneratorServerUir);
-        this.host = sts[0];
-        this.port = Integer.parseInt(sts[1]);
     }
 
     @Override
@@ -61,9 +51,18 @@ public class SnowflakeUidGeneratorClientImpl extends AbstractSnowflakeUidGenerat
 
     public long getUidFromRemote() {
         try {
-            String content = Http2Requester.executeGET(host, port, SNOWFLAKE_UDI_PATH);
-            return Long.parseLong(content);
+            String content = Http2Requester.executeGET(config, SNOWFLAKE_UDI_PATH);
+            Result<Long> result = OBJECT_MAPPER.readValue(content, new TypeReference<>() {
+            });
+            if (!result.isSuccess()) {
+                throw new UidGenerateException(ErrorCode.UPSTREAM_UNAVAILABLE,
+                    "Snowflake server returned " + result.getCode() + ": " + result.getMsg());
+            }
+            return result.getData();
         } catch (Exception e) {
+            if (e instanceof UidGenerateException uidGenerateException) {
+                throw uidGenerateException;
+            }
             throw new UidGenerateException("Get Uid from remote [URL=" + SNOWFLAKE_UDI_PATH + "] error", e);
         }
     }

@@ -1,7 +1,12 @@
 package com.github.mxsm.rain.jmh;
 
-import com.github.mxsm.rain.uid.client.UidClient;
+import com.github.mxsm.rain.uid.client.Config;
+import com.github.mxsm.rain.uid.client.service.SegmentUidGeneratorClientImpl;
+import com.github.mxsm.rain.uid.core.segment.Segment;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -20,89 +25,83 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * snowflake id client local benchmark
- *
- * @author mxsm
- * @date 2022/5/14 22:06
- * @Since 1.0.0
- */
-
 @BenchmarkMode(Mode.Throughput)
 @Warmup(iterations = 3, time = 2)
 @Measurement(iterations = 3, time = 4)
 @Fork(1)
-@State(value = Scope.Benchmark)
+@State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class SegmentClientCachedBenchmark {
 
-    private UidClient uidClient;
+    private static final String BIZ_CODE = "benchmark";
+
+    private SegmentUidGeneratorClientImpl uidGenerator;
 
     @Setup
     public void init() {
-        uidClient = UidClient.builder().setUidGeneratorServerUir("172.23.186.56:8080").setSegmentNum(32).isSegmentUidFromRemote(false).build();
+        Config config = new Config();
+        config.setSegmentNum(64);
+        config.setThreshold(30);
+        config.setSegmentUidFromRemote(false);
+        config.setSnowflakeUidFromRemote(false);
+        uidGenerator = new InMemorySegmentUidGenerator(config, 10_000);
     }
 
     @Benchmark
     @Threads(1)
-    public void snowflakeClientLocalBenchmarksThread1() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
+    public long segmentCacheThread1() {
+        return uidGenerator.getUIDFromLocalCache(BIZ_CODE);
     }
-
-    @Benchmark
-    @Threads(4)
-    public void snowflakeClientLocalBenchmarksThread4() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
-    }
-
 
     @Benchmark
     @Threads(8)
-    public void snowflakeClientLocalBenchmarksThread8() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
-    }
-
-    @Benchmark
-    @Threads(16)
-    public void snowflakeClientLocalBenchmarksThread16() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
+    public long segmentCacheThread8() {
+        return uidGenerator.getUIDFromLocalCache(BIZ_CODE);
     }
 
     @Benchmark
     @Threads(32)
-    public void snowflakeClientLocalBenchmarksThread32() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
-    }
-
-    @Benchmark
-    @Threads(50)
-    public void snowflakeClientLocalBenchmarksThread50() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
+    public long segmentCacheThread32() {
+        return uidGenerator.getUIDFromLocalCache(BIZ_CODE);
     }
 
     @Benchmark
     @Threads(100)
-    public void snowflakeClientLocalBenchmarksThread100() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
-    }
-
-    @Benchmark
-    @Threads(200)
-    public void snowflakeClientLocalBenchmarksThread200() {
-        uidClient.getSegmentUid("uQG6n50NSIR6Fcuh19093632");
+    public long segmentCacheThread100() {
+        return uidGenerator.getUIDFromLocalCache(BIZ_CODE);
     }
 
     @TearDown
-    public void shutdown(){
-        uidClient.shutdown();
+    public void shutdown() {
+        uidGenerator.shutdown();
     }
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
             .include(SegmentClientCachedBenchmark.class.getSimpleName())
             .result("result.json")
-            .resultFormat(ResultFormatType.JSON).build();
+            .resultFormat(ResultFormatType.JSON)
+            .build();
         new Runner(opt).run();
     }
 
+    private static class InMemorySegmentUidGenerator extends SegmentUidGeneratorClientImpl {
+
+        private final AtomicLong nextSegmentStart = new AtomicLong(1);
+        private final int segmentLength;
+
+        InMemorySegmentUidGenerator(Config config, int segmentLength) {
+            super(config);
+            this.segmentLength = segmentLength;
+        }
+
+        @Override
+        public List<Segment> getSegments(String bizCode, int segmentNum) {
+            List<Segment> segments = new ArrayList<>(segmentNum);
+            for (int i = 0; i < segmentNum; i++) {
+                segments.add(new Segment(nextSegmentStart.getAndAdd(segmentLength), segmentLength));
+            }
+            return segments;
+        }
+    }
 }

@@ -4,7 +4,26 @@ on:
     branches:
       - main
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - name: Verify Maven build
+        run: mvn -q -Dflatten.skip=true clean verify
+      - name: Build Docker image
+        run: docker build -t rain-uidgenerator:ci .
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Validate Kubernetes manifests
+        run: kubectl apply --dry-run=client --validate=false -f deploy/kubernetes/rain.yaml
+
   publish:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,6 +40,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   release:
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Check out Git repository

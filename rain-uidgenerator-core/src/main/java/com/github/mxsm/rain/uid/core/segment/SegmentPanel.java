@@ -1,10 +1,13 @@
 package com.github.mxsm.rain.uid.core.segment;
 
 import com.github.mxsm.rain.uid.core.exception.SegmentOutOfBoundaryException;
+import com.github.mxsm.rain.uid.core.common.ErrorCode;
+import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
@@ -35,13 +38,17 @@ public class SegmentPanel {
 
     private int capacity;
 
+    private final AtomicBoolean refillInProgress = new AtomicBoolean(false);
+
     public SegmentPanel(String bizCode, int capacity, int threshold, List<Segment> segments,
         SegmentConsumerListener listener) {
 
         this.bizCode = bizCode;
         this.capacity = capacity <= 0 ? 16 : capacity;
         this.segmentQueue = new ArrayBlockingQueue<>(this.capacity);
-        this.segmentQueue.addAll(segments);
+        if (segments != null) {
+            this.segmentQueue.addAll(segments);
+        }
         this.listener = listener;
         this.threshold = threshold;
         this.currentSegment = this.segmentQueue.poll();
@@ -49,39 +56,55 @@ public class SegmentPanel {
 
     public long getUid() {
         while (true) {
-            try {
-                return this.currentSegment.createSegmentUid();
-            } catch (Exception e) {
-                if (e instanceof SegmentOutOfBoundaryException) {
-                    try {
-                        lock.lock();
-                        if (this.currentSegment != null && !this.currentSegment.isOk()) {
-                            if (((capacity - counter) * 100) / capacity <= threshold) {
-                                listener.listener(this, counter);
-                            }
-                            this.currentSegment = segmentQueue.poll(3, TimeUnit.SECONDS);
-                            if (this.currentSegment == null) {
-                                return -1;
-                            }
-                            ++counter;
-                        }
-                    } catch (InterruptedException interruptedException) {
-                        LOGGER.error("poll segment from segmentQueue error", interruptedException);
-                    } finally {
-                        lock.unlock();
-                    }
-                } else {
-                    try {
-                        this.currentSegment = segmentQueue.poll(3, TimeUnit.SECONDS);
-                        if (this.currentSegment == null) {
-                            return -1;
-                        }
-                    } catch (InterruptedException ex) {
-                        LOGGER.error("poll segment from segmentQueue error", ex);
-                    }
+            Segment segment = this.currentSegment;
+            if (segment != null) {
+                long uid = segment.tryCreateSegmentUid();
+                if (uid != Segment.EXHAUSTED) {
+                    maybeRequestRefill();
+                    return uid;
                 }
-
             }
+            switchSegment();
+        }
+    }
+
+    private void switchSegment() {
+        lock.lock();
+        try {
+            if (this.currentSegment != null && this.currentSegment.isOk()) {
+                return;
+            }
+            maybeRequestRefill();
+            this.currentSegment = segmentQueue.poll(3, TimeUnit.SECONDS);
+            if (this.currentSegment == null) {
+                throw new UidUnavailableException(ErrorCode.UID_UNAVAILABLE,
+                    "No segment is available for bizCode " + bizCode);
+            }
+            ++counter;
+            maybeRequestRefill();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new UidUnavailableException(ErrorCode.UID_UNAVAILABLE,
+                "Interrupted while waiting for segment for bizCode " + bizCode, ex);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void maybeRequestRefill() {
+        if (listener == null) {
+            return;
+        }
+        int remaining = segmentQueue.size();
+        if (currentSegment != null && currentSegment.isOk()) {
+            remaining++;
+        }
+        if ((remaining * 100) / capacity > threshold) {
+            return;
+        }
+        if (refillInProgress.compareAndSet(false, true)) {
+            int segmentNum = Math.max(1, capacity - remaining);
+            listener.listener(this, segmentNum);
         }
     }
 
@@ -90,6 +113,9 @@ public class SegmentPanel {
     }
 
     public void addSegment(List<Segment> segments) {
+        if (segments == null) {
+            return;
+        }
         for (Segment segment : segments) {
             this.addSegment(segment);
         }
@@ -101,6 +127,18 @@ public class SegmentPanel {
 
     public void resetCounter() {
         this.counter = 0;
+    }
+
+    public void refillFinished() {
+        this.refillInProgress.set(false);
+    }
+
+    public int availableSegments() {
+        int available = segmentQueue.size();
+        if (currentSegment != null && currentSegment.isOk()) {
+            available++;
+        }
+        return available;
     }
 
 }

@@ -1,9 +1,11 @@
 package com.github.mxsm.rain.uid.core.snowflake;
 
 import com.github.mxsm.rain.uid.core.SnowflakeUidGenerator;
+import com.github.mxsm.rain.uid.core.common.ErrorCode;
 import com.github.mxsm.rain.uid.core.common.SnowflakeUidParsedResult;
 import com.github.mxsm.rain.uid.core.utils.DateUtils;
 import com.github.mxsm.rain.uid.core.exception.UidGenerateException;
+import com.github.mxsm.rain.uid.core.exception.UidUnavailableException;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -43,12 +45,23 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
 
     private Lock lock = new ReentrantLock();
 
+    private final long maxBackwardMillis;
+
+    private final long maxBackwardSeconds;
+
     public AbstractSnowflakeUidGenerator(String epoch, boolean timeBitsSecond, int timestampBits, int machineIdBits, int sequenceBits) {
+        this(epoch, timeBitsSecond, timestampBits, machineIdBits, sequenceBits, 1000L);
+    }
+
+    public AbstractSnowflakeUidGenerator(String epoch, boolean timeBitsSecond, int timestampBits, int machineIdBits,
+        int sequenceBits, long maxBackwardMillis) {
         this.epoch = epoch;
         this.timeBitsSecond = timeBitsSecond;
         long epochMill = DateUtils.parseDate(epoch, "yyyy-MM-dd").getTime();
         this.epochTime = timeBitsSecond ? TimeUnit.MILLISECONDS.toSeconds(epochMill) : epochMill;
         this.bitsAllocator = new BitsAllocator(timestampBits, machineIdBits, sequenceBits);
+        this.maxBackwardMillis = Math.max(0, maxBackwardMillis);
+        this.maxBackwardSeconds = TimeUnit.MILLISECONDS.toSeconds(this.maxBackwardMillis);
     }
 
     public BitsAllocator getBitsAllocator() {
@@ -102,12 +115,12 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             //time the callback
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
-                if (offset <= 1000L) {
+                if (offset <= maxBackwardMillis) {
                     currentTimestamp = tillNextMillis(lastTimestamp);
                 } else {
-                    // offset > 1000ms
-                    LOGGER.error("Time rollback exceeds 1 second");
-                    return -3;
+                    onClockMovedBackwards(offset);
+                    throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                        "Time rollback exceeds " + maxBackwardMillis + "ms");
                 }
             }
             if (currentTimestamp == lastTimestamp) {
@@ -132,12 +145,12 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             //Time the callback
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
-                if (offset <= 1000L) {
+                if (offset <= maxBackwardMillis) {
                     currentTimestamp = tillNextMillis(lastTimestamp);
                 } else {
-                    // offset > 1000ms
-                    LOGGER.error("Time rollback exceeds 1 second");
-                    return -3;
+                    onClockMovedBackwards(offset);
+                    throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                        "Time rollback exceeds " + maxBackwardMillis + "ms");
                 }
             }
             if (currentTimestamp == lastTimestamp) {
@@ -166,12 +179,12 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             //Time the callback
             if (currentTimestamp < lastCurrent) {
                 long offset = lastCurrent - currentTimestamp;
-                if (offset <= 1000L) {
+                if (offset <= maxBackwardMillis) {
                     currentTimestamp = tillNextMillis(lastCurrent);
                 } else {
-                    // offset > 1000ms
-                    LOGGER.error("Time rollback exceeds 1 second");
-                    return -3;
+                    onClockMovedBackwards(offset);
+                    throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                        "Time rollback exceeds " + maxBackwardMillis + "ms");
                 }
             }
             long nextSeqNum = 0;
@@ -207,8 +220,13 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             // clock moved backwards, refuse to generate uid
             if (currentSecond < lastTimestamp) {
                 long refusedSeconds = lastTimestamp - currentSecond;
-                LOGGER.error("Time rollback exceeds " + refusedSeconds + " second");
-                return -2;
+                onClockMovedBackwards(TimeUnit.SECONDS.toMillis(refusedSeconds));
+                if (refusedSeconds <= maxBackwardSeconds) {
+                    currentSecond = getNextSecond(lastTimestamp);
+                } else {
+                    throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                        "Time rollback exceeds " + maxBackwardSeconds + "s");
+                }
             }
 
             // at the same second, increase sequence
@@ -237,8 +255,9 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             // Clock moved backwards, refuse to generate uid
             if (currentSecond < lastTimestamp) {
                 long refusedSeconds = lastTimestamp - currentSecond;
-                LOGGER.error("Time rollback exceeds " + refusedSeconds + " second");
-                return -2;
+                onClockMovedBackwards(TimeUnit.SECONDS.toMillis(refusedSeconds));
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Time rollback exceeds " + maxBackwardSeconds + "s");
             }
 
             // At the same second, increase sequence
@@ -270,8 +289,9 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
             // Clock moved backwards, refuse to generate uid
             if (currentSecond < lastCurrent) {
                 long refusedSeconds = lastCurrent - currentSecond;
-                LOGGER.error("Time rollback exceeds " + refusedSeconds + " second");
-                return -2;
+                onClockMovedBackwards(TimeUnit.SECONDS.toMillis(refusedSeconds));
+                throw new UidUnavailableException(ErrorCode.CLOCK_MOVED_BACKWARDS,
+                    "Time rollback exceeds " + maxBackwardSeconds + "s");
             }
 
             long nextSeqNum = 0L;
@@ -324,6 +344,10 @@ public abstract class AbstractSnowflakeUidGenerator implements SnowflakeUidGener
         long machineId = (long) (Math.random() * getBitsAllocator().getMaxMachineId());
         LOGGER.info("Random machine id is {}", machineId);
         return machineId;
+    }
+
+    protected void onClockMovedBackwards(long rollbackMillis) {
+        LOGGER.error("Time rollback detected: {}ms", rollbackMillis);
     }
 
 }

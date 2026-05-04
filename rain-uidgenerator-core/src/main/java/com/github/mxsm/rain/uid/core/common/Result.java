@@ -11,6 +11,8 @@ public class Result<T> {
 
     private Status status;
 
+    private String code;
+
     private String msg;
 
     public T getData() {
@@ -20,6 +22,7 @@ public class Result<T> {
     public Result(T data, Status status, String msg) {
         this.data = data;
         this.status = status;
+        this.code = status == Status.SUCCESS ? ErrorCode.SUCCESS.name() : ErrorCode.INTERNAL_ERROR.name();
         this.msg = msg;
     }
 
@@ -39,6 +42,14 @@ public class Result<T> {
         this.status = status;
     }
 
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public String getMsg() {
         return msg;
     }
@@ -52,6 +63,7 @@ public class Result<T> {
         return "Result{" +
             "data=" + data +
             ", status=" + status.name() +
+            ", code='" + code + '\'' +
             '}';
     }
 
@@ -59,18 +71,28 @@ public class Result<T> {
 
         Result<T> result = new Result<>();
         result.setStatus(Status.SUCCESS);
+        result.setCode(ErrorCode.SUCCESS.name());
         result.setData(data);
         result.setMsg("SUCCESS");
         return result;
     }
 
     public static <T> Result<T> buildError(T data, String msg) {
+        return buildError(data, ErrorCode.INTERNAL_ERROR, msg);
+    }
+
+    public static <T> Result<T> buildError(T data, ErrorCode code, String msg) {
 
         Result<T> result = new Result<>();
         result.setStatus(Status.EXCEPTION);
+        result.setCode(code.name());
         result.setData(data);
         result.setMsg(msg);
 
         return result;
+    }
+
+    public boolean isSuccess() {
+        return status == Status.SUCCESS;
     }
 }
