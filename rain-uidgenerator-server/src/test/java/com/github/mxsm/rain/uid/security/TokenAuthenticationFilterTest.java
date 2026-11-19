@@ -2,13 +2,13 @@ package com.github.mxsm.rain.uid.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mxsm.rain.uid.config.UidSecurityProperties;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import tools.jackson.databind.ObjectMapper;
 
 class TokenAuthenticationFilterTest {
 

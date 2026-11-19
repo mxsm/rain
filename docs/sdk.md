@@ -57,7 +57,7 @@ UidClient client = UidClient.builder()
     .build();
 ```
 
-This mode reduces request latency while MySQL allocation still remains globally atomic. If all local segments are exhausted and refill does not arrive before `segmentWaitTimeoutMillis`, the SDK throws `UidUnavailableException`.
+This mode reduces request latency. The server reserves each segment atomically in the configured MySQL or PostgreSQL database. If all local segments are exhausted and refill does not arrive before `segmentWaitTimeoutMillis`, the SDK throws `UidUnavailableException`.
 
 ## Local Snowflake Mode
 

@@ -1,6 +1,6 @@
 # Rain 生产配置
 
-Rain 当前基于 Java 25 和 Spring Boot 4。生产部署建议使用 Kubernetes StatefulSet + 外部 MySQL 8 高可用写端点。
+Rain 基于 Java 25 和 Spring Boot 4。生产部署可使用 Kubernetes StatefulSet，所有副本连接同一个 MySQL 8 或 PostgreSQL 16 写端点。
 
 ## 必需环境变量
 
@@ -51,16 +51,18 @@ Flyway 迁移位于：
 rain-uidgenerator-server/src/main/resources/db/migration
 ```
 
-号段分配使用 MySQL 原子更新：
+Flyway 根据 JDBC URL 选择 `mysql/` 或 `postgresql/` 下的迁移。MySQL 在同一事务中锁定业务行，更新游标并读取结果。
 
 ```sql
 UPDATE mxsm_allocation
 SET max_id = LAST_INSERT_ID(max_id + step * ?)
-WHERE biz_code = ?;
+WHERE id = ?;
 SELECT LAST_INSERT_ID();
 ```
 
-该模式支持多实例并发分配且号段不重叠。
+PostgreSQL 16 需要 ICU 支持。将 `RAIN_DATASOURCE_URL` 设为 `jdbc:postgresql://pg-writer.example:5432/uidgenerator?sslmode=verify-full`，并允许访问写库的 5432/TCP。服务通过一次 `UPDATE ... RETURNING` 取得本次分配的步长和游标。两个数据库均按业务码串行预留号段。
+
+存量切库时先停止旧库分配，复制每个业务码的 `max_id`、`step` 和 Snowflake 节点 ID，再校准新库的自增序列。`max_id` 包含服务端和 SDK 已预取的号段。导入前须用目标库的 ICU 排序规则核对业务码唯一性。[生产部署说明](../production.md)
 
 ## 观测
 

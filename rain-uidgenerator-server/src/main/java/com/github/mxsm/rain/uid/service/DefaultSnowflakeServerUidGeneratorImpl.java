@@ -16,6 +16,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.stereotype.Service;
 
 /**
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
  * @Since 1.0.0
  */
 @Service("defaultSnowflakeUidGeneratorImpl")
+@DependsOnDatabaseInitialization
 public class DefaultSnowflakeServerUidGeneratorImpl extends AbstractSnowflakeUidGenerator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultSnowflakeServerUidGeneratorImpl.class);

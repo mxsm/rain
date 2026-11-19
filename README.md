@@ -2,7 +2,7 @@
 
 Rain is a Java 25 / Spring Boot 4 distributed UID generation service. It supports two generation modes:
 
-- Segment IDs backed by MySQL atomic allocation.
+- Segment IDs allocated atomically in MySQL or PostgreSQL.
 - Snowflake IDs with deterministic worker IDs.
 
 Production guidance is in [docs/production.md](docs/production.md). API details are in [docs/api.md](docs/api.md). Java SDK usage is in [docs/sdk.md](docs/sdk.md). Chinese docs are under [docs/cn](docs/cn).
@@ -11,7 +11,7 @@ Production guidance is in [docs/production.md](docs/production.md). API details 
 
 - JDK 25
 - Maven 3.9.15, preferably through `./mvnw`
-- MySQL 8 / InnoDB
+- MySQL 8 / InnoDB or PostgreSQL 16 with ICU support
 - Docker and Kubernetes for production delivery checks
 
 ## Build And Test
@@ -26,11 +26,20 @@ java -version
 
 ## Local Run
 
-Create the schema through Flyway by starting the server with a MySQL database available:
+Create a database named `uidgenerator` on your chosen writer. For local testing, this PostgreSQL container exposes the database on `127.0.0.1:5432`.
+
+```bash
+docker run --rm -d --name rain-pg -p 127.0.0.1:5432:5432 \
+  -e POSTGRES_DB=uidgenerator -e POSTGRES_USER=rain -e POSTGRES_PASSWORD=rain postgres:16
+```
+
+Start Rain with the JDBC URL for that database. Flyway selects the matching migrations on startup.
 
 ```bash
 export SPRING_PROFILES_ACTIVE=local
-export RAIN_DATASOURCE_URL='jdbc:mysql://localhost:3306/uidgenerator?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+export RAIN_DATASOURCE_URL='jdbc:postgresql://localhost:5432/uidgenerator'
+# Local MySQL writer
+# export RAIN_DATASOURCE_URL='jdbc:mysql://localhost:3306/uidgenerator?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
 export RAIN_DATASOURCE_USERNAME=rain
 export RAIN_DATASOURCE_PASSWORD=rain
 
@@ -52,6 +61,9 @@ Generate IDs:
 curl -X POST http://localhost:8080/api/v1/snowflake/uid
 curl -X POST http://localhost:8080/api/v1/segment/uid/orders
 ```
+
+After the local run, stop the example database with `docker stop rain-pg`. To verify both backends, start Docker and run
+`sh mvnw -Dflatten.skip=true clean verify`. Testcontainers starts disposable MySQL 8.4 and PostgreSQL 16 instances on dynamic ports.
 
 All `/api/v1/**` responses are wrapped in `Result<T>` with stable `code` values. UID generation uses POST. Legacy GET generation endpoints remain available for compatibility and return `Cache-Control: no-store`.
 

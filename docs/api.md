@@ -55,7 +55,7 @@ Authorization: Bearer <admin-token>
 }
 ```
 
-`bizCode` is limited to 128 characters. `step` must be positive.
+`bizCode` is limited to 128 characters. Registration and allocation share the same business key, so `Orders`, `orders`, and `orders ` use one cursor. `step` must be positive.
 
 ### Generate Segment UID
 

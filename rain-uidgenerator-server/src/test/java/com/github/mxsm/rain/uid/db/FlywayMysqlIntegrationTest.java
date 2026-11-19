@@ -1,88 +1,55 @@
 package com.github.mxsm.rain.uid.db;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import com.github.mxsm.rain.uid.service.AllocationService;
+import com.github.mxsm.rain.uid.service.DefaultSnowflakeServerUidGeneratorImpl;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MySQLContainer;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 
 @Testcontainers(disabledWithoutDocker = true)
-class FlywayMysqlIntegrationTest {
+class FlywayMysqlIntegrationTest extends DatabaseIntegrationTest {
 
     @Container
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
-        .withDatabaseName("uidgenerator")
-        .withUsername("rain")
-        .withPassword("rain");
+    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+
+    @Override
+    MySQLContainer database() {
+        return MYSQL;
+    }
 
     @Test
-    void flywayCreatesSchemaAndConcurrentAllocationsDoNotOverlap() throws Exception {
-        Flyway.configure()
-            .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
-            .locations("classpath:db/migration")
-            .load()
-            .migrate();
-        try (Connection connection = connection()) {
-            connection.createStatement().executeUpdate(
-                "INSERT INTO mxsm_allocation (biz_code, max_id, step) VALUES ('biz', 1, 100)");
+    void upgradesAnExistingV1WithoutResettingCursorsOrWorkerIds(@TempDir Path oldLocation) throws Exception {
+        String script = "V1__init_uid_schema.sql";
+        try (var source = new ClassPathResource("db/migration/mysql/" + script).getInputStream()) {
+            Files.copy(source, oldLocation.resolve(script));
         }
-
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        Future<Range> first = executor.submit(allocationTask());
-        Future<Range> second = executor.submit(allocationTask());
-        Range firstRange = first.get();
-        Range secondRange = second.get();
-        executor.shutdownNow();
-
-        assertFalse(firstRange.overlaps(secondRange));
-        assertEquals(300, firstRange.length());
-        assertEquals(300, secondRange.length());
-    }
-
-    private Callable<Range> allocationTask() {
-        return () -> {
-            try (Connection connection = connection()) {
-                connection.setAutoCommit(false);
-                try (PreparedStatement statement = connection.prepareStatement(
-                    "UPDATE mxsm_allocation SET max_id = LAST_INSERT_ID(max_id + step * ?) WHERE biz_code = ?")) {
-                    statement.setInt(1, 3);
-                    statement.setString(2, "biz");
-                    statement.executeUpdate();
-                }
-                long newMax;
-                try (ResultSet resultSet = connection.createStatement().executeQuery("SELECT LAST_INSERT_ID()")) {
-                    resultSet.next();
-                    newMax = resultSet.getLong(1);
-                }
-                connection.commit();
-                return new Range(newMax - 300, newMax);
+        try (var legacy = new MySQLContainer("mysql:8.4")) {
+            legacy.start();
+            Flyway old = Flyway.configure().dataSource(legacy.getJdbcUrl(), legacy.getUsername(), legacy.getPassword())
+                .locations("filesystem:" + oldLocation).load();
+            old.migrate();
+            // Checksum of the V1 shipped before migrations were split by vendor.
+            assertEquals(-726151852, old.info().current().getChecksum());
+            try (var connection = legacy.createConnection(""); var statement = connection.createStatement()) {
+                statement.executeUpdate("INSERT INTO mxsm_allocation (biz_code, max_id, step) VALUES ('legacy', 9601, 100)");
+                statement.executeUpdate("INSERT INTO mxsm_snowfalke_node (id, host_name, port) VALUES (42, 2130706433, 0)");
             }
-        };
-    }
-
-    private Connection connection() throws Exception {
-        return DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
-    }
-
-    private record Range(long startInclusive, long endExclusive) {
-
-        boolean overlaps(Range other) {
-            return startInclusive < other.endExclusive && other.startInclusive < endExclusive;
-        }
-
-        long length() {
-            return endExclusive - startInclusive;
+            try (var upgraded = startApplication(legacy)) {
+                Flyway flyway = upgraded.getBean(Flyway.class);
+                flyway.validate();
+                assertEquals(1, flyway.info().applied().length);
+                assertEquals(9601, upgraded.getBean(AllocationService.class)
+                    .getSegments("legacy", 1).getFirst().getSegmentStartNum());
+                assertEquals(42, upgraded.getBean(DefaultSnowflakeServerUidGeneratorImpl.class).getMachineId());
+            }
         }
     }
 }

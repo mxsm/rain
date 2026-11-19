@@ -14,6 +14,19 @@ import org.junit.jupiter.api.Test;
 class DefaultSnowflakeServerUidGeneratorImplTest {
 
     @Test
+    void usesTheConfiguredMachineIdBeforeLookingUpAPodOrDatabase() {
+        SnowflakeUidGeneratorConfig config = new SnowflakeUidGeneratorConfig();
+        config.setContainer(true);
+        config.setMachineId(0L);
+        DefaultSnowflakeServerUidGeneratorImpl generator = new DefaultSnowflakeServerUidGeneratorImpl(
+            config, noDatabaseDao(), new UidMetrics(new SimpleMeterRegistry()));
+
+        assertEquals(0, generator.getMachineId());
+        config.setMachineId(1024L);
+        assertThrows(UidUnavailableException.class, generator::getMachineId);
+    }
+
+    @Test
     void parsesStatefulSetOrdinalAsMachineId() {
         SnowflakeUidGeneratorConfig config = new SnowflakeUidGeneratorConfig();
         config.setContainer(true);
@@ -39,11 +52,12 @@ class DefaultSnowflakeServerUidGeneratorImplTest {
         return new SnowflakeNodeDao() {
             @Override
             public SnowflakeNodeEntity selectSnowflakeNode(long hostName, int port) {
-                return null;
+                throw new AssertionError("Unexpected database lookup");
             }
 
             @Override
             public void insertSnowflakeNode(SnowflakeNodeEntity sf) {
+                throw new AssertionError("Unexpected database registration");
             }
         };
     }

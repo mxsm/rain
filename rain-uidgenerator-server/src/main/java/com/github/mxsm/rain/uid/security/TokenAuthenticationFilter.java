@@ -1,6 +1,5 @@
 package com.github.mxsm.rain.uid.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mxsm.rain.uid.config.UidSecurityProperties;
 import com.github.mxsm.rain.uid.core.common.ErrorCode;
 import com.github.mxsm.rain.uid.core.common.Result;
@@ -17,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
