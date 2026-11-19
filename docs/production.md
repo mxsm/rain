@@ -1,10 +1,10 @@
 # Production Deployment
 
-Rain is intended to run as multiple stateless Java service replicas backed by a highly available MySQL 8 writer endpoint. No Redis or service registry is required.
+Point all Rain replicas in a deployment at the same MySQL 8 or PostgreSQL 16 writer.
 
 ## Runtime Model
 
-- Segment mode stores allocation state in MySQL and uses atomic `LAST_INSERT_ID(max_id + step * segmentNum)` updates.
+- Segment mode advances one row per business code. MySQL locks the row and reads the new cursor with `LAST_INSERT_ID()` on the same connection. PostgreSQL returns the cursor and step from one `UPDATE ... RETURNING`.
 - Snowflake mode uses a deterministic worker ID. In Kubernetes production deployment, the StatefulSet pod ordinal is the worker ID.
 - Service replicas can scale horizontally as long as the replica count is within the configured `machine-id-bits` range.
 
@@ -64,7 +64,7 @@ Important production adjustments:
 
 - Replace `ghcr.io/mxsm/rain:1.0.1` with your immutable image tag or digest.
 - Replace `change-me` secret placeholders.
-- Adjust NetworkPolicy egress for your MySQL writer endpoint.
+- Scope NetworkPolicy egress to your writer endpoint and its port (3306 for MySQL or 5432 for PostgreSQL).
 - Keep `replicas <= 2^machineIdBits - 1`.
 - Use PodAntiAffinity or topology spread constraints if your cluster spans zones.
 
@@ -73,7 +73,7 @@ Important production adjustments:
 Flyway migrations live in:
 
 ```text
-rain-uidgenerator-server/src/main/resources/db/migration
+rain-uidgenerator-server/src/main/resources/db/migration/{mysql,postgresql}
 ```
 
 The first migration creates:
@@ -81,7 +81,11 @@ The first migration creates:
 - `mxsm_allocation`
 - `mxsm_snowfalke_node`
 
-For production, grant the application user only the permissions it needs for these tables and Flyway migration execution. The legacy [scripts/mxsm-uidgenerator.sql](../scripts/mxsm-uidgenerator.sql) is kept for local bootstrap and no longer drops databases or tables.
+For PostgreSQL, use a URL such as `jdbc:postgresql://pg-writer.example:5432/uidgenerator?sslmode=verify-full`. Flyway needs permission to create tables and an ICU collation in the target schema. Business keys ignore case, accents, and trailing ASCII spaces. When importing Unicode keys from MySQL, check their uniqueness under PostgreSQL's ICU collation. Its Unicode weights can differ from `utf8mb4_general_ci`.
+
+MySQL databases with a recorded Flyway V1 upgrade in place. For databases initialized manually with the legacy bootstrap script, verify both table definitions against MySQL V1. On the first startup set `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true` and `SPRING_FLYWAY_BASELINE_VERSION=0` so Flyway records the existing idempotent V1. Remove the overrides after startup. [MySQL bootstrap script](../scripts/mxsm-uidgenerator.sql)
+
+For a MySQL-to-PostgreSQL cutover, stop allocation on the old writer and drain the old replicas. Copy each business code, step and stored `max_id` (the exclusive upper bound of all reserved segments, including client caches). Copy the Snowflake node IDs and advance both identity sequences past the imported IDs before starting Rain against PostgreSQL. After issuing new ranges, a rollback must carry the latest cursors back to the old writer.
 
 ## API Compatibility
 
@@ -116,7 +120,7 @@ Recommended alerts:
 - Segment allocation failures > 0.
 - Segment discarded count > 0.
 - Clock rollback count > 0.
-- MySQL connection pool saturation.
+- Database connection pool saturation.
 - HTTP 5xx rate above baseline.
 
 ## Rollout And Rollback
@@ -127,7 +131,7 @@ Rollback checklist:
 
 - Previous image tag/digest is available.
 - Flyway migration is backward-compatible.
-- MySQL writer endpoint is healthy.
+- The configured database writer is healthy.
 - Prometheus and logs are available during rollout.
 
 ## Verification
@@ -140,4 +144,4 @@ docker build -t rain-uidgenerator:ci .
 kubectl apply --dry-run=client --validate=false -f deploy/kubernetes/rain.yaml
 ```
 
-Testcontainers MySQL integration tests run automatically when Docker is available.
+Testcontainers runs the MySQL 8.4 and PostgreSQL 16 integration suites when Docker is available.

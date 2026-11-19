@@ -37,7 +37,7 @@ UidClient client = UidClient.builder()
     .build();
 ```
 
-本地缓存模式在进程内生成 UID，号段仍由服务端通过 MySQL 原子分配，保证全局不重叠。当本地库存耗尽且补充超时时，会抛出 `UidUnavailableException`。
+本地缓存模式在进程内生成 UID。服务端在配置的 MySQL 或 PostgreSQL 写库中原子分配号段，保证同一业务码下的号段不重叠。当本地库存耗尽且补充超时时，会抛出 `UidUnavailableException`。
 
 ## Snowflake 本地模式
 

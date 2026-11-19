@@ -2,7 +2,7 @@
 
 ## Project Structure
 
-Rain generates MySQL-backed segment IDs and Snowflake IDs. The root Maven build includes five modules.
+Rain generates database-backed segment IDs and Snowflake IDs. The root Maven build includes five modules.
 
 - `rain-uidgenerator-core/` contains shared generators, result types, and error codes.
 - `rain-uidgenerator-server/` exposes the Spring Boot REST API. Its `src/main/resources/` holds Spring profiles, MyBatis XML in `mapper/`, and Flyway SQL in `db/migration/`.
@@ -17,7 +17,7 @@ Set `JAVA_HOME` to JDK 25 and run the Maven 3.9.15 wrapper from the repository r
 - `sh mvnw "-Dflatten.skip=true" -pl rain-uidgenerator-core test` runs the core generator tests.
 - `sh mvnw "-Dflatten.skip=true" -pl rain-uidgenerator-server -am package` builds the runnable server JAR and its dependencies.
 
-For a local run, create the `uidgenerator` database in MySQL 8. Set `RAIN_DATASOURCE_USERNAME` and `RAIN_DATASOURCE_PASSWORD` for that database. Override `RAIN_DATASOURCE_URL` if MySQL runs elsewhere. Start the server with `java -jar rain-uidgenerator-server/target/rain-uidgenerator-server-1.0.1.jar --spring.profiles.active=local`. Flyway applies migrations at startup.
+For a local run, create the `uidgenerator` database in MySQL 8 or PostgreSQL 16. Set `RAIN_DATASOURCE_URL`, `RAIN_DATASOURCE_USERNAME`, and `RAIN_DATASOURCE_PASSWORD` for that writer. Start the server with `java -jar rain-uidgenerator-server/target/rain-uidgenerator-server-1.0.1.jar --spring.profiles.active=local`. Flyway selects migrations by database vendor.
 
 ## Coding Style
 
@@ -25,7 +25,7 @@ Indent Java with four spaces. Use `UpperCamelCase` for types, `lowerCamelCase` f
 
 ## Testing Guidelines
 
-Mirror the production package from `src/main/java/` under the module's `src/test/java/`. Name JUnit Jupiter classes `*Test` and describe behavior in method names such as `generatesUniqueIdsUnderConcurrency`. Use MockMvc to check the API's `Result<T>` envelope and error codes. Start Docker to include `FlywayMysqlIntegrationTest`, which uses Testcontainers with MySQL 8.4 and skips automatically when Docker is unavailable. Maven sets no minimum coverage percentage.
+Mirror the production package from `src/main/java/` under the module's `src/test/java/`. Name JUnit Jupiter classes `*Test` and describe behavior in method names such as `generatesUniqueIdsUnderConcurrency`. Use MockMvc to check the API's `Result<T>` envelope and error codes. Start Docker to run both Flyway integration suites against MySQL 8.4 and PostgreSQL 16. Maven sets no minimum coverage percentage.
 
 ## Commits and Pull Requests
 

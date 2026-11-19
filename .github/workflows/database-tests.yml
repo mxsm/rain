@@ -1,0 +1,26 @@
+name: Database integration tests
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  database-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Run server tests with local Docker
+        run: sh mvnw -B -ntp -Dflatten.skip=true -pl rain-uidgenerator-server -am test
+      - name: Confirm both databases were tested
+        run: |
+          for vendor in Mysql Postgresql; do
+            report="rain-uidgenerator-server/target/surefire-reports/com.github.mxsm.rain.uid.db.Flyway${vendor}IntegrationTest.txt"
+            grep -Eq '^Tests run: [1-9][0-9]*, Failures: 0, Errors: 0, Skipped: 0,' "$report"
+          done

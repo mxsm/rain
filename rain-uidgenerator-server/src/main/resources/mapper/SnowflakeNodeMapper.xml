@@ -3,9 +3,20 @@
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.github.mxsm.rain.uid.dao.SnowflakeNodeDao">
 
-    <insert id="insertSnowflakeNode" useGeneratedKeys="true" keyProperty="id">
+    <sql id="insertNode">
         INSERT INTO mxsm_snowfalke_node (host_name, port, deploy_env_type, description, create_time, update_time)
         VALUES (#{sf.hostName}, #{sf.port}, #{sf.deployEnvType}, #{sf.description}, now(), now())
+    </sql>
+
+    <insert id="insertSnowflakeNode" databaseId="MySQL" useGeneratedKeys="true" keyColumn="id" keyProperty="sf.id">
+        <include refid="insertNode"/>
+        ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+    </insert>
+
+    <insert id="insertSnowflakeNode" databaseId="PostgreSQL" useGeneratedKeys="true" keyColumn="id" keyProperty="sf.id">
+        <include refid="insertNode"/>
+        ON CONFLICT (host_name, port) DO UPDATE SET host_name = EXCLUDED.host_name
+        RETURNING id
     </insert>
 
     <select id="selectSnowflakeNode" resultType="com.github.mxsm.rain.uid.entity.SnowflakeNodeEntity" >

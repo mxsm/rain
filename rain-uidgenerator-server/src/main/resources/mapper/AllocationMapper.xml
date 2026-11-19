@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
-<mapper namespace="com.github.mxsm.rain.uid.dao.AllocationDao">
+<mapper namespace="com.github.mxsm.rain.uid.dao.AllocationMapper">
 
-    <insert id="insertAllocation" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insertAllocation" useGeneratedKeys="true" keyColumn="id" keyProperty="alloc.id">
         INSERT INTO mxsm_allocation (biz_code,
         <if test="alloc.maxId != null">
             max_id,
@@ -16,19 +16,24 @@
         #{alloc.step}, now(), now())
     </insert>
 
-    <update id="updateAllocation">
-        UPDATE mxsm_allocation
-        SET max_id = LAST_INSERT_ID(max_id + step * #{segmentNum})
-        WHERE biz_code = #{bizCode}
-    </update>
-
-    <select id="getLastInsertId" resultType="long">
-        SELECT LAST_INSERT_ID()
+    <select id="lockAllocation" databaseId="MySQL" resultType="AllocationEntity" useCache="false" flushCache="true">
+        SELECT id, step FROM mxsm_allocation WHERE biz_code = #{bizCode} FOR UPDATE
     </select>
 
-    <select id="getAllocation" resultType="com.github.mxsm.rain.uid.entity.AllocationEntity">
-        SELECT id, biz_code as bizCode, max_id as maxId, step
-        FROM mxsm_allocation
-        WHERE biz_code = #{bizCode}
+    <update id="advanceLockedAllocation" databaseId="MySQL">
+        <selectKey keyProperty="alloc.maxId" resultType="long" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        UPDATE mxsm_allocation
+        SET max_id = LAST_INSERT_ID(max_id + step * #{segmentNum})
+        WHERE id = #{alloc.id}
+    </update>
+
+    <select id="reserveReturning" databaseId="PostgreSQL" resultType="AllocationEntity"
+            affectData="true" flushCache="true" useCache="false">
+        UPDATE mxsm_allocation
+        SET max_id = max_id + CAST(step AS bigint) * #{segmentNum}, update_time = CURRENT_TIMESTAMP
+        WHERE biz_key = rtrim(#{bizCode}, ' ')
+        RETURNING step, max_id AS "maxId"
     </select>
 </mapper>

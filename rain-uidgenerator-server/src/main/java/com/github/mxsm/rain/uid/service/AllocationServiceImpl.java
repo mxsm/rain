@@ -11,8 +11,8 @@ import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author mxsm
@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @Since 1.0.0
  */
 @Service("allocationServiceImpl")
-public class AllocationServiceImpl implements AllocationService{
+public class AllocationServiceImpl implements AllocationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AllocationServiceImpl.class);
 
@@ -34,12 +34,18 @@ public class AllocationServiceImpl implements AllocationService{
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public List<Segment> getSegments(String bizCode, int segmentNum) {
         long start = System.nanoTime();
         validateSegmentRequest(bizCode, segmentNum);
-        AllocationEntity allocation = allocationDao.getAllocation(bizCode);
-        if(allocation == null){
+        AllocationEntity allocation;
+        try {
+            allocation = allocationDao.reserve(bizCode, segmentNum);
+        } catch (DataAccessException ex) {
+            uidMetrics.recordSegmentAllocationFailure();
+            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
+                "Failed to reserve segments for bizCode " + bizCode, ex);
+        }
+        if (allocation == null) {
             uidMetrics.recordSegmentAllocationFailure();
             throw new UidGenerateException(ErrorCode.BIZ_CODE_NOT_FOUND, "bizCode not registered: " + bizCode);
         }
@@ -49,31 +55,11 @@ public class AllocationServiceImpl implements AllocationService{
             throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
                 "Invalid step for bizCode " + bizCode);
         }
-        long totalLength;
-        try {
-            totalLength = Math.multiplyExact(stepLength.longValue(), segmentNum);
-        } catch (ArithmeticException ex) {
-            uidMetrics.recordSegmentAllocationFailure();
-            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
-                "Segment allocation overflows for bizCode " + bizCode, ex);
-        }
-        int updated = allocationDao.updateAllocation(segmentNum, bizCode);
-        if (updated != 1) {
-            uidMetrics.recordSegmentAllocationFailure();
-            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
-                "Failed to allocate segment for bizCode " + bizCode);
-        }
-        Long newMaxId = allocationDao.getLastInsertId();
-        if (newMaxId == null) {
-            uidMetrics.recordSegmentAllocationFailure();
-            throw new UidGenerateException(ErrorCode.SEGMENT_ALLOCATE_FAILED,
-                "Failed to read allocated segment cursor for bizCode " + bizCode);
-        }
-        long startUid = Math.subtractExact(newMaxId, totalLength);
-        List<Segment> segments = new ArrayList<>();
-        for(int index = 0; index < segmentNum; ++ index){
-            Segment segment = new Segment(startUid + stepLength.longValue() * index, stepLength);
-            segments.add(segment);
+        long totalLength = (long) stepLength * segmentNum;
+        long startUid = Math.subtractExact(allocation.getMaxId(), totalLength);
+        List<Segment> segments = new ArrayList<>(segmentNum);
+        for (int index = 0; index < segmentNum; index++) {
+            segments.add(new Segment(startUid + (long) stepLength * index, stepLength));
         }
         uidMetrics.recordSegmentAllocation(System.nanoTime() - start);
         return segments;
@@ -88,10 +74,7 @@ public class AllocationServiceImpl implements AllocationService{
             throw new UidGenerateException(ErrorCode.VALIDATION_ERROR, "step must be greater than 0");
         }
         try {
-            AllocationEntity entity = new AllocationEntity();
-            entity.setStep(step);
-            entity.setBizCode(bizCode);
-            allocationDao.insertAllocation(entity);
+            allocationDao.register(bizCode, step);
         } catch (Exception e) {
             LOGGER.error("register biz code error",e);
             throw e;
